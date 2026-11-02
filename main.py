@@ -195,6 +195,11 @@ def main():
             print(log_message)
 
         print(error)
+    except KeyboardInterrupt:
+        print("\nExiting cleanly")
+    finally:
+        sys.stdout.write(SHOW_CURSOR)
+        sys.stdout.flush()
 
 
 if __name__ == "__main__":
