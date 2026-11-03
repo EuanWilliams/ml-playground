@@ -60,8 +60,6 @@ KEY_W = 115
 KEY_UP_ARROW = 259
 KEY_DOWN_ARROW = 258
 
-KEYSTROKE_VELOCITY = 0.2
-
 
 @dataclass
 class State:
@@ -161,13 +159,13 @@ def register_keystroke(state: State, keystroke: int) -> None:
     """Registers keystroke in state"""
 
     if keystroke == KEY_W:
-        state.left_paddle_velocity = min(KEYSTROKE_VELOCITY, state.left_paddle_velocity + KEYSTROKE_VELOCITY)
+        state.left_paddle_position_y = max(min(state.left_paddle_position_y + 1, state.grid.shape[0] - 2), 1)
     elif keystroke == KEY_S:
-        state.left_paddle_velocity = max(-KEYSTROKE_VELOCITY, state.right_paddle_velocity - KEYSTROKE_VELOCITY)
+        state.left_paddle_position_y = max(min(state.left_paddle_position_y - 1, state.grid.shape[0] - 2), 1)
     elif keystroke == KEY_UP_ARROW:
-        state.right_paddle_velocity = max(-KEYSTROKE_VELOCITY, state.right_paddle_velocity - KEYSTROKE_VELOCITY)
+        state.right_paddle_position_y = max(min(state.right_paddle_position_y - 1, state.grid.shape[0] - 2), 1)
     elif keystroke == KEY_DOWN_ARROW:
-        state.right_paddle_velocity = min(KEYSTROKE_VELOCITY, state.right_paddle_velocity + KEYSTROKE_VELOCITY)
+        state.right_paddle_position_y = max(min(state.right_paddle_position_y + 1, state.grid.shape[0] - 2), 1)
     else:
         raise Exception(f'Unahndled keystroke: {keystroke}')
 
@@ -192,10 +190,6 @@ def tick(state: State, log_messages: List[str], tick_index: int) -> None:
         bounce(state, bouncing_object, log_messages, tick_index)
     else:
         state.position_y, state.position_x = potential_new_y, potential_new_x
-
-    # Calculate the new paddle positions
-    state.left_paddle_position_y = max(min(state.left_paddle_position_y + state.left_paddle_velocity, state.grid.shape[0] - 2), 1)
-    state.right_paddle_position_y = max(min(state.right_paddle_position_y + state.right_paddle_velocity, state.grid.shape[0] - 2), 1)
 
     log_messages.append(f"{tick_index}: resulting position is {state.rounded_ball_position}, new left paddle position {state.left_paddle_position_y}, new right paddle position {state.right_paddle_position_y}")
 
