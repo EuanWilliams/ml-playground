@@ -1,4 +1,6 @@
+"""A CLI Pong game"""
 import random
+import curses
 import sys
 import time
 from dataclasses import dataclass
@@ -7,9 +9,13 @@ from typing import Tuple, List
 import numpy as np
 import numpy.typing as npt
 
+
 Grid = npt.NDArray[np.uint8]
 
 RANDOM = np.random.default_rng()
+
+ITERATIONS = 1000
+TICK_SLEEP_TIME = 1 / 30
 
 GRID_SIZE_X = 30
 GRID_SIZE_Y = 10
@@ -26,7 +32,7 @@ LEFT_PADDLE = 5
 RIGHT_PADDLE = 6
 BALL = 9
 
-BOUNCING_OBJECTS = [DEATH_ZONE_LEFT, DEATH_ZONE_RIGHT, FLOOR, CEILING]
+BOUNCING_OBJECTS = [DEATH_ZONE_LEFT, DEATH_ZONE_RIGHT, FLOOR, CEILING, LEFT_PADDLE, RIGHT_PADDLE]
 
 DISPLAY_CHARACTERS = {
     EMPTY_SPACE: ' ',
@@ -39,18 +45,22 @@ DISPLAY_CHARACTERS = {
     RIGHT_PADDLE: "]",
 }
 
-HIDE_CURSOR = "\033[?25l"
-SHOW_CURSOR = "\033[?25h"
-CLEAR_SCREEN = "\033[2J"
-CURSOR_HOME = "\033[H"
-
 # Maps object to unit normal vector, used in the calculation of velocity after a bounce.
 OBJECT_TO_UNIT_NORMAL_VECTOR = {
     DEATH_ZONE_LEFT: np.array((0, 1)),  # Vertical wall (left)
     DEATH_ZONE_RIGHT: np.array((0, -1)),  # Vertical wall (right)
     FLOOR: np.array((1, 0)),  # Horizontal floor
-    CEILING: np.array((-1, 0))  # Horizontal ceiling
+    CEILING: np.array((-1, 0)),  # Horizontal ceiling
+    LEFT_PADDLE: np.array((0, 1)),
+    RIGHT_PADDLE: np.array((0, -1)),
 }
+
+KEY_S = 119
+KEY_W = 115
+KEY_UP_ARROW = 259
+KEY_DOWN_ARROW = 258
+
+KEYSTROKE_VELOCITY = 0.2
 
 
 @dataclass
@@ -60,8 +70,10 @@ class State:
     velocity_y: float
     velocity_x: float
 
-    left_paddle_position_y: int
-    right_paddle_position_y: int
+    left_paddle_position_y: float
+    right_paddle_position_y: float
+    left_paddle_velocity: float
+    right_paddle_velocity: float
 
     grid: Grid
 
@@ -73,21 +85,20 @@ class State:
 
     @property
     def left_paddle_position(self) -> Tuple[int, int]:
-        return self.left_paddle_position_y, LEFT_PADDLE_X_VALUE
+        return round(self.left_paddle_position_y), LEFT_PADDLE_X_VALUE
 
     @property
     def right_paddle_position(self) -> Tuple[int, int]:
-        return self.right_paddle_position_y, RIGHT_PADDLE_X_VALUE
+        return round(self.right_paddle_position_y), RIGHT_PADDLE_X_VALUE
 
 
-def render(state: State) -> None:
+def render(stdscr: curses.window, state: State) -> None:
     """Prints the provided grid, translating numbers into icons."""
 
     grid = state.grid
 
     frame = "\n".join("".join(DISPLAY_CHARACTERS[cell] for cell in row) for row in grid)
-    sys.stdout.write(CURSOR_HOME + frame)
-    sys.stdout.flush()
+    stdscr.addstr(0, 0, frame)
 
 def init_grid() -> Grid:
     """Initialises the grid with zeros"""
@@ -106,9 +117,9 @@ def init_state() -> State:
     grid = init_grid()
 
     # y velocity in positions per tick - positive means moving top to bottom
-    initial_ball_velocity_y = random.randint(0, 100) / 100
+    initial_ball_velocity_y = random.randint(0, 10) / 100
     # x velocity in positions per tick - positive means moving left to right
-    initial_ball_velocity_x = random.randint(0, 100) / 100
+    initial_ball_velocity_x = random.randint(20, 40) / 100
 
     paddle_y_pos = grid.shape[0] // 2
 
@@ -119,6 +130,8 @@ def init_state() -> State:
         velocity_x=initial_ball_velocity_x,
         left_paddle_position_y=paddle_y_pos,
         right_paddle_position_y=paddle_y_pos,
+        left_paddle_velocity=0,
+        right_paddle_velocity=0,
         grid=grid
     )
 
@@ -132,7 +145,6 @@ def bounce(state: State, bouncing_object: int, log_messages: List[str], tick_ind
     Where N is the unit normal vector of the surface.
     """
 
-
     # Calculate new velocity
     unit_normal_vector = OBJECT_TO_UNIT_NORMAL_VECTOR[bouncing_object]
     input_velocity = np.array([state.velocity_y, state.velocity_x], dtype=np.float32)
@@ -143,6 +155,22 @@ def bounce(state: State, bouncing_object: int, log_messages: List[str], tick_ind
     # Send the ball off in the new velocity
     state.position_y = state.position_y + state.velocity_y
     state.position_x = state.position_x + state.velocity_x
+
+
+def register_keystroke(state: State, keystroke: int) -> None:
+    """Registers keystroke in state"""
+
+    if keystroke == KEY_W:
+        state.left_paddle_velocity = min(KEYSTROKE_VELOCITY, state.left_paddle_velocity + KEYSTROKE_VELOCITY)
+    elif keystroke == KEY_S:
+        state.left_paddle_velocity = max(-KEYSTROKE_VELOCITY, state.right_paddle_velocity - KEYSTROKE_VELOCITY)
+    elif keystroke == KEY_UP_ARROW:
+        state.right_paddle_velocity = max(-KEYSTROKE_VELOCITY, state.right_paddle_velocity - KEYSTROKE_VELOCITY)
+    elif keystroke == KEY_DOWN_ARROW:
+        state.right_paddle_velocity = min(KEYSTROKE_VELOCITY, state.right_paddle_velocity + KEYSTROKE_VELOCITY)
+    else:
+        raise Exception(f'Unahndled keystroke: {keystroke}')
+
 
 def tick(state: State, log_messages: List[str], tick_index: int) -> None:
     """Updates the state with a single new tick, mutates state in place"""
@@ -165,7 +193,11 @@ def tick(state: State, log_messages: List[str], tick_index: int) -> None:
     else:
         state.position_y, state.position_x = potential_new_y, potential_new_x
 
-    log_messages.append(f"{tick_index}: resulting position is {state.rounded_ball_position}")
+    # Calculate the new paddle positions
+    state.left_paddle_position_y = max(min(state.left_paddle_position_y + state.left_paddle_velocity, state.grid.shape[0] - 2), 1)
+    state.right_paddle_position_y = max(min(state.right_paddle_position_y + state.right_paddle_velocity, state.grid.shape[0] - 2), 1)
+
+    log_messages.append(f"{tick_index}: resulting position is {state.rounded_ball_position}, new left paddle position {state.left_paddle_position_y}, new right paddle position {state.right_paddle_position_y}")
 
     # --- Update the grid ---
 
@@ -178,28 +210,41 @@ def tick(state: State, log_messages: List[str], tick_index: int) -> None:
     state.grid[state.right_paddle_position] = RIGHT_PADDLE
 
 
-def main():
-    sys.stdout.write(HIDE_CURSOR + CLEAR_SCREEN)
+def run_main_loop(stdscr: curses.window, state: State, log_messages: List[str]) -> None:
+    """Executes the main loop until completion."""
+
+    stdscr.nodelay(True)
+
+    for i in range(ITERATIONS):
+        time.sleep(TICK_SLEEP_TIME)
+
+        keystroke = stdscr.getch()
+        if keystroke != curses.ERR:
+            log_messages.append(f"Keystroke found {keystroke}")
+            if keystroke in (KEY_W, KEY_S, KEY_UP_ARROW, KEY_DOWN_ARROW):
+                register_keystroke(state, keystroke)
+
+        tick(state, log_messages, i)
+        render(stdscr, state)
+
+
+def main() -> None:
+    """Entry point"""
 
     state = init_state()
     log_messages = []
 
     try:
-        for i in range(10000):
-            time.sleep(1 / 30)
-            tick(state, log_messages, i)
-            render(state)
+        curses.wrapper(lambda stdscr: run_main_loop(stdscr, state, log_messages))
     except Exception as error:
-        print('\n')
         for log_message in log_messages:
             print(log_message)
 
-        print(error)
+        raise error
     except KeyboardInterrupt:
-        print("\nExiting cleanly")
-    finally:
-        sys.stdout.write(SHOW_CURSOR)
-        sys.stdout.flush()
+        for log_message in log_messages:
+            print(log_message)
+        print("Exiting cleanly")
 
 
 if __name__ == "__main__":
