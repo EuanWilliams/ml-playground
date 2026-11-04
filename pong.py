@@ -1,8 +1,6 @@
 """A CLI Pong game"""
-import os
 import random
 import curses
-import sys
 import time
 from dataclasses import dataclass
 from typing import Tuple, List
@@ -56,15 +54,15 @@ OBJECT_TO_UNIT_NORMAL_VECTOR = {
     RIGHT_PADDLE: np.array((0, -1)),
 }
 
-KEY_S = 119
-KEY_W = 115
+KEY_W = 119
+KEY_S = 115
 KEY_UP_ARROW = 259
 KEY_DOWN_ARROW = 258
 
 STARTING_LIVES = 3
 
-MIN_STARTING_Y_VELOCITY = 1
-MAX_STARTING_Y_VELOCITY = 10
+MIN_STARTING_Y_VELOCITY = 5
+MAX_STARTING_Y_VELOCITY = 20
 MIN_STARTING_X_VELOCITY = 20
 MAX_STARTING_X_VELOCITY = 40
 
@@ -207,9 +205,9 @@ def register_life_lost(state: State, bouncing_object: int, log_messages: List[st
 def register_keystroke(state: State, keystroke: int) -> None:
     """Registers keystroke in state"""
 
-    if keystroke == KEY_W:
+    if keystroke == KEY_S:
         state.left_paddle_position_y = max(min(state.left_paddle_position_y + 1, state.grid.shape[0] - 2), 1)
-    elif keystroke == KEY_S:
+    elif keystroke == KEY_W:
         state.left_paddle_position_y = max(min(state.left_paddle_position_y - 1, state.grid.shape[0] - 2), 1)
     elif keystroke == KEY_UP_ARROW:
         state.right_paddle_position_y = max(min(state.right_paddle_position_y - 1, state.grid.shape[0] - 2), 1)
@@ -306,7 +304,7 @@ def run_main_loop(stdscr: curses.window, state: State, log_messages: List[str]) 
         keystroke = stdscr.getch()
         if keystroke != curses.ERR:
             log_messages.append(f"Keystroke found {keystroke}")
-            if keystroke in (KEY_W, KEY_S, KEY_UP_ARROW, KEY_DOWN_ARROW):
+            if keystroke in (KEY_S, KEY_W, KEY_UP_ARROW, KEY_DOWN_ARROW):
                 register_keystroke(state, keystroke)
 
         tick(state, log_messages, tick_index)
