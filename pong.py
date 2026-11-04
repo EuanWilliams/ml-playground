@@ -1,4 +1,5 @@
 """A CLI Pong game"""
+import os
 import random
 import curses
 import sys
@@ -9,8 +10,7 @@ from typing import Tuple, List
 import numpy as np
 import numpy.typing as npt
 
-
-Grid = npt.NDArray[np.uint8]
+Grid = npt.NDArray[np.float32]
 
 RANDOM = np.random.default_rng()
 
@@ -32,10 +32,11 @@ LEFT_PADDLE = 5
 RIGHT_PADDLE = 6
 BALL = 9
 
-BOUNCING_OBJECTS = [DEATH_ZONE_LEFT, DEATH_ZONE_RIGHT, FLOOR, CEILING, LEFT_PADDLE, RIGHT_PADDLE]
+BOUNCING_OBJECTS = [FLOOR, CEILING, LEFT_PADDLE, RIGHT_PADDLE]
+DEATH_ZONES = [DEATH_ZONE_LEFT, DEATH_ZONE_RIGHT]
 
 DISPLAY_CHARACTERS = {
-    EMPTY_SPACE: ' ',
+    EMPTY_SPACE: " ",
     DEATH_ZONE_LEFT: "|",
     DEATH_ZONE_RIGHT: "|",
     CEILING: "-",
@@ -60,6 +61,17 @@ KEY_W = 115
 KEY_UP_ARROW = 259
 KEY_DOWN_ARROW = 258
 
+STARTING_LIVES = 3
+
+MIN_STARTING_Y_VELOCITY = 1
+MAX_STARTING_Y_VELOCITY = 10
+MIN_STARTING_X_VELOCITY = 20
+MAX_STARTING_X_VELOCITY = 40
+
+
+class GameOver(Exception):
+    """Raised when a player loses all their lives to end the game."""
+
 
 @dataclass
 class State:
@@ -74,6 +86,9 @@ class State:
     right_paddle_velocity: float
 
     grid: Grid
+
+    left_lives: int
+    right_lives: int
 
     @property
     def rounded_ball_position(self) -> Tuple[int, int]:
@@ -98,6 +113,11 @@ def render(stdscr: curses.window, state: State) -> None:
     frame = "\n".join("".join(DISPLAY_CHARACTERS[cell] for cell in row) for row in grid)
     stdscr.addstr(0, 0, frame)
 
+    score = f"Left {state.left_lives} : {state.right_lives} Right".center(GRID_SIZE_X)
+    stdscr.addstr(len(grid), 0, score)
+    # stdscr.refresh()
+
+
 def init_grid() -> Grid:
     """Initialises the grid with zeros"""
 
@@ -109,29 +129,43 @@ def init_grid() -> Grid:
 
     return grid
 
+
+def ball_to_start_position(state: State) -> None:
+    """Sets the ball in the middle of the frame and randomises the starting velocity"""
+
+    # y velocity in positions per tick - positive means moving top to bottom
+    state.velocity_y = (random.randint(MIN_STARTING_Y_VELOCITY, MAX_STARTING_Y_VELOCITY) * random.choice([1, -1])) / 100
+    # x velocity in positions per tick - positive means moving left to right
+    state.velocity_x = (random.randint(MIN_STARTING_X_VELOCITY, MAX_STARTING_X_VELOCITY) * random.choice([1, -1])) / 100
+
+    state.position_y = state.grid.shape[0] // 2
+    state.position_x = state.grid.shape[1] // 2
+
+
 def init_state() -> State:
     """Initialises inital state"""
 
     grid = init_grid()
 
-    # y velocity in positions per tick - positive means moving top to bottom
-    initial_ball_velocity_y = random.randint(0, 10) / 100
-    # x velocity in positions per tick - positive means moving left to right
-    initial_ball_velocity_x = random.randint(20, 40) / 100
-
     paddle_y_pos = grid.shape[0] // 2
 
-    return State(
-        position_y=grid.shape[0] // 2,
-        position_x=grid.shape[1] // 2,
-        velocity_y=initial_ball_velocity_y,
-        velocity_x=initial_ball_velocity_x,
+    state = State(
+        position_y=0,  # will be set before the game starts in ball_to_start_position, same below
+        position_x=0,
+        velocity_y=0,
+        velocity_x=0,
         left_paddle_position_y=paddle_y_pos,
         right_paddle_position_y=paddle_y_pos,
         left_paddle_velocity=0,
         right_paddle_velocity=0,
-        grid=grid
+        grid=grid,
+        left_lives=STARTING_LIVES,
+        right_lives=STARTING_LIVES
     )
+
+    ball_to_start_position(state)
+    return state
+
 
 def bounce(state: State, bouncing_object: int, log_messages: List[str], tick_index: int) -> None:
     """
@@ -155,6 +189,21 @@ def bounce(state: State, bouncing_object: int, log_messages: List[str], tick_ind
     state.position_x = state.position_x + state.velocity_x
 
 
+def register_life_lost(state: State, bouncing_object: int, log_messages: List[str], tick_index: int) -> None:
+    """Registers a life lost when hitting the death zone."""
+
+    if bouncing_object == DEATH_ZONE_LEFT:
+        state.left_lives = state.left_lives - 1
+        log_messages.append(f"{tick_index}: left life lost, remaining lives: {state.left_lives}")
+    elif bouncing_object == DEATH_ZONE_RIGHT:
+        state.right_lives = state.right_lives - 1
+        log_messages.append(f"{tick_index}: right life lost, remaining lives: {state.right_lives}")
+    else:
+        raise ValueError(f"Unhandled bouncing object: {bouncing_object}")
+
+    ball_to_start_position(state)
+
+
 def register_keystroke(state: State, keystroke: int) -> None:
     """Registers keystroke in state"""
 
@@ -167,7 +216,7 @@ def register_keystroke(state: State, keystroke: int) -> None:
     elif keystroke == KEY_DOWN_ARROW:
         state.right_paddle_position_y = max(min(state.right_paddle_position_y + 1, state.grid.shape[0] - 2), 1)
     else:
-        raise Exception(f'Unahndled keystroke: {keystroke}')
+        raise Exception(f"Unahndled keystroke: {keystroke}")
 
 
 def tick(state: State, log_messages: List[str], tick_index: int) -> None:
@@ -182,16 +231,20 @@ def tick(state: State, log_messages: List[str], tick_index: int) -> None:
     rounded_potential_new_ball_position = round(potential_new_y), round(potential_new_x)
     log_messages.append(f"{tick_index}: rounded potential new ball position: {rounded_potential_new_ball_position}")
 
-    # Check if we should bounce!
-    if state.grid[rounded_potential_new_ball_position] in BOUNCING_OBJECTS:
-        log_messages.append(f"{tick_index}: bounce detected, bounce object is {state.grid[rounded_potential_new_ball_position]}")
-        # we need to bounce, pythagoras to find the incoming angle, then calculate the velocity of the return angle?
-        bouncing_object = state.grid[rounded_potential_new_ball_position]
-        bounce(state, bouncing_object, log_messages, tick_index)
+    next_position_object = state.grid[rounded_potential_new_ball_position]
+    if next_position_object in BOUNCING_OBJECTS:
+        log_messages.append(f"{tick_index}: bounce detected, bounce object is {next_position_object}")
+        bounce(state, next_position_object, log_messages, tick_index)
+    elif next_position_object in DEATH_ZONES:
+        log_messages.append(f"{tick_index}: death zone detected detected, death zone object is {next_position_object}")
+        register_life_lost(state, next_position_object, log_messages, tick_index)
     else:
         state.position_y, state.position_x = potential_new_y, potential_new_x
 
-    log_messages.append(f"{tick_index}: resulting position is {state.rounded_ball_position}, new left paddle position {state.left_paddle_position_y}, new right paddle position {state.right_paddle_position_y}")
+    log_messages.append(
+        f"{tick_index}: resulting position is {state.rounded_ball_position}, new left paddle position {state.left_paddle_position_y}, new right paddle position "
+        f"{state.right_paddle_position_y}"
+    )
 
     # --- Update the grid ---
 
@@ -202,6 +255,43 @@ def tick(state: State, log_messages: List[str], tick_index: int) -> None:
     state.grid[state.rounded_ball_position] = BALL
     state.grid[state.left_paddle_position] = LEFT_PADDLE
     state.grid[state.right_paddle_position] = RIGHT_PADDLE
+
+
+def splash_winning_screen(stdscr: curses.window, state: State) -> None:
+    """Displays the winner and the final score."""
+
+    winner, loser = ("Left", "Right") if state.right_lives == 0 else ("Right", "Left")
+    lines = [
+        "GAME OVER",
+        "",
+        f"{winner} wins.",
+        f"{loser} loses.",
+        "",
+        f"Left {state.left_lives} : {state.right_lives} Right",
+        "",
+        "Press any key",
+    ]
+
+    window = curses.newwin(GRID_SIZE_Y, GRID_SIZE_X, 0, 0)
+    window.box()
+    for row, line in enumerate(lines):
+        window.addstr(row + 1, (GRID_SIZE_X - len(line)) // 2, line)
+
+    stdscr.clear()
+    stdscr.refresh()
+    window.refresh()
+
+    stdscr.nodelay(False)
+    stdscr.getch()
+
+
+def check_game_over(stdscr: curses.window, state: State) -> None:
+    """Checks if the game is over, displays message to user if so."""
+
+    if state.left_lives == 0 or state.right_lives == 0:
+        # Someones won
+        splash_winning_screen(stdscr, state)
+        raise GameOver
 
 
 def run_main_loop(stdscr: curses.window, state: State, log_messages: List[str]) -> None:
@@ -219,6 +309,7 @@ def run_main_loop(stdscr: curses.window, state: State, log_messages: List[str]) 
                 register_keystroke(state, keystroke)
 
         tick(state, log_messages, i)
+        check_game_over(stdscr, state)
         render(stdscr, state)
 
 
@@ -230,14 +321,16 @@ def main() -> None:
 
     try:
         curses.wrapper(lambda stdscr: run_main_loop(stdscr, state, log_messages))
+    except GameOver:
+        for log_message in log_messages:
+            print(log_message)
+        print("Game finished!")
     except Exception as error:
         for log_message in log_messages:
             print(log_message)
 
         raise error
     except KeyboardInterrupt:
-        for log_message in log_messages:
-            print(log_message)
         print("Exiting cleanly")
 
 
