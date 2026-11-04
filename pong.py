@@ -299,7 +299,8 @@ def run_main_loop(stdscr: curses.window, state: State, log_messages: List[str]) 
 
     stdscr.nodelay(True)
 
-    for i in range(ITERATIONS):
+    tick_index = 0
+    while True:
         time.sleep(TICK_SLEEP_TIME)
 
         keystroke = stdscr.getch()
@@ -308,9 +309,10 @@ def run_main_loop(stdscr: curses.window, state: State, log_messages: List[str]) 
             if keystroke in (KEY_W, KEY_S, KEY_UP_ARROW, KEY_DOWN_ARROW):
                 register_keystroke(state, keystroke)
 
-        tick(state, log_messages, i)
+        tick(state, log_messages, tick_index)
         check_game_over(stdscr, state)
         render(stdscr, state)
+        tick_index += 1
 
 
 def main() -> None:
@@ -322,8 +324,6 @@ def main() -> None:
     try:
         curses.wrapper(lambda stdscr: run_main_loop(stdscr, state, log_messages))
     except GameOver:
-        for log_message in log_messages:
-            print(log_message)
         print("Game finished!")
     except Exception as error:
         for log_message in log_messages:
