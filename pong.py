@@ -1,4 +1,5 @@
 import curses
+import math
 import time
 import random
 from enum import IntEnum
@@ -139,6 +140,10 @@ class Paddle:
         """Moves the ball a single increment"""
         self.position_y = max(min(self.position_y + increment, GRID_SIZE_Y - 2), 1)
 
+    def hits_paddle(self, ball_position_y: int, ball_position_x: int) -> bool:
+        """Checks if the ball collides with the paddle"""
+        return ball_position_y == self.position_y and ball_position_x == self.position_x
+
 
 class Ball:
     """The ball"""
@@ -193,8 +198,8 @@ class Ball:
     def accelerate(self, delta_y: float, delta_x: float) -> None:
         """Accelerates the ball a provided amount"""
 
-        self.velocity_y += delta_y
-        self.velocity_x += delta_x
+        self.velocity_y = math.copysign(self.velocity_y + delta_y, self.velocity_y)
+        self.velocity_x = math.copysign(self.velocity_x + delta_x, self.velocity_x)
 
     def set_position(self, position: Tuple[int, int]) -> None:
         """Sets the balls position"""
@@ -231,23 +236,9 @@ class Game:
         self.tick_index = 0
         self.log_messages: List[str] = []
 
-        self.grid = self._init_grid()
-
     def _log(self, message: str) -> None:
         """Appends log message"""
         self.logger.add_log_message(f"{self.tick_index}: {message}")
-
-    @staticmethod
-    def _init_grid() -> Grid:
-        """Initialises the grid with zeros"""
-
-        grid = np.zeros((GRID_SIZE_Y, GRID_SIZE_X), dtype=np.float32)
-        grid[:, [0]] = DEATH_ZONE_LEFT  # create death zone
-        grid[:, [-1]] = DEATH_ZONE_RIGHT  # create death zone
-        grid[[0], :] = CEILING
-        grid[[-1], :] = FLOOR
-
-        return grid
 
     def _register_player_action(self, player_action: PlayerAction) -> None:
         """Responds to a player action by updating the paddle state"""
@@ -259,18 +250,11 @@ class Game:
         elif player_action == PlayerAction.LEFT_PADDLE_DOWN:
             self.left_paddle.move_paddle(1)
         elif player_action == PlayerAction.RIGHT_PADDLE_UP:
-            if self.right_paddle is not None:
-                self.right_paddle.move_paddle(-1)
+            self.right_paddle.move_paddle(-1)
         elif player_action == PlayerAction.RIGHT_PADDLE_DOWN:
-            if self.right_paddle is not None:
-                self.right_paddle.move_paddle(1)
+            self.right_paddle.move_paddle(1)
         else:
             raise ValueError(f"Unhandled player action: {player_action}")
-
-    @staticmethod
-    def _collides_with_paddle(ball_position_y: int, ball_position_x: int, paddle_position_y: int, paddle_position_x: int) -> bool:
-        """Checks if the ball collides with the paddle"""
-        return ball_position_x == paddle_position_x and ball_position_y == paddle_position_y
 
     def _check_collision(self) -> Optional[int]:
         """Checks if the next ball position will collide with an object"""
@@ -285,9 +269,9 @@ class Game:
             return DEATH_ZONE_LEFT
         elif next_position_x >= GRID_SIZE_X - 1:
             return DEATH_ZONE_RIGHT
-        elif self._collides_with_paddle(next_position_y, next_position_x, self.left_paddle.position_y, self.left_paddle.position_x):
+        elif self.left_paddle.hits_paddle(next_position_y, next_position_x):
             return LEFT_PADDLE
-        elif self._collides_with_paddle(next_position_y, next_position_x, self.right_paddle.position_y, self.right_paddle.position_x):
+        elif self.right_paddle.hits_paddle(next_position_y, next_position_x):
             return RIGHT_PADDLE
         else:
             return None
@@ -305,9 +289,9 @@ class Game:
             raise ValueError(f"Invalid object for losing a life: {death_zone}")
 
         if self.left_lives == 0:
-            self.winner = Player.LEFT
-        elif self.right_lives == 0:
             self.winner = Player.RIGHT
+        elif self.right_lives == 0:
+            self.winner = Player.LEFT
         else:
             self.ball.reset_to_start()
 
@@ -327,10 +311,8 @@ class Game:
         collision_value = self._check_collision()
         if collision_value in BOUNCING_OBJECTS:
             self.ball.bounce(OBJECT_TO_UNIT_NORMAL_VECTOR[collision_value])
-            if collision_value == LEFT_PADDLE:
+            if collision_value in [LEFT_PADDLE, RIGHT_PADDLE]:
                 self.ball.accelerate(BALL_Y_ACCELERATION, BALL_X_ACCELERATION)
-            elif collision_value == RIGHT_PADDLE:
-                self.ball.accelerate(-BALL_Y_ACCELERATION, -BALL_X_ACCELERATION)
         elif collision_value in [DEATH_ZONE_LEFT, DEATH_ZONE_RIGHT]:
             self._handle_life_lost(collision_value)
         else:
@@ -339,7 +321,6 @@ class Game:
 
         self.tick_index += 1
 
-
 class TerminalApp:
     """Terminal app for running pong interactively in the terminal"""
 
@@ -347,6 +328,8 @@ class TerminalApp:
         self.stdscr = stdscr
         self.game = game
         self.logger = logger
+
+        self.grid = self._init_grid()
 
     def _game_over(self) -> None:
         """Splashes a screen to say game over."""
@@ -378,7 +361,7 @@ class TerminalApp:
         """Renders the current status to terminal"""
 
         # overlay grid
-        frame = "\n".join("".join(DISPLAY_CHARACTERS[cell] for cell in row) for row in self.game.grid)
+        frame = "\n".join("".join(DISPLAY_CHARACTERS[cell] for cell in row) for row in self.grid)
         self.stdscr.addstr(0, 0, frame)
 
         # overlay paddles
@@ -393,7 +376,7 @@ class TerminalApp:
             bottom_line = f"Life lost (×_×)".center(GRID_SIZE_X)
         else:
             bottom_line = f"Left {self.game.left_lives} : {self.game.right_lives} Right".center(GRID_SIZE_X)
-        self.stdscr.addstr(len(self.game.grid), 0, bottom_line)
+        self.stdscr.addstr(len(self.grid), 0, bottom_line)
         self.stdscr.refresh()
 
     def run(self) -> None:
@@ -419,6 +402,18 @@ class TerminalApp:
             curses.endwin()
             self.logger.output_log_messages()
             raise
+
+    @staticmethod
+    def _init_grid() -> Grid:
+        """Initialises the grid with zeros"""
+
+        grid = np.zeros((GRID_SIZE_Y, GRID_SIZE_X), dtype=np.float32)
+        grid[:, [0]] = DEATH_ZONE_LEFT  # create death zone
+        grid[:, [-1]] = DEATH_ZONE_RIGHT  # create death zone
+        grid[[0], :] = CEILING
+        grid[[-1], :] = FLOOR
+
+        return grid
 
 
 def main(stdscr: curses.window) -> None:
