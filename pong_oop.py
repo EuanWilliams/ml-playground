@@ -14,8 +14,8 @@ from pong_procedural import TICK_SLEEP_TIME, KEY_S, KEY_W, KEY_UP_ARROW, KEY_DOW
 STARTING_Y_VELOCITY = 0.1
 STARTING_X_VELOCITY = 0.3
 
-BALL_X_ACCELERATION = 0.1  # ball accelerates this amount per bounce on a paddle
-BALL_Y_ACCELERATION = 0.033
+BALL_X_ACCELERATION = 0.05  # ball accelerates this amount per bounce on a paddle
+BALL_Y_ACCELERATION = 0.0125
 
 class PaddleSide(IntEnum):
     LEFT = 0
@@ -262,8 +262,10 @@ class Game:
         collision_value = self._check_collision()
         if collision_value in BOUNCING_OBJECTS:
             self.ball.bounce(OBJECT_TO_UNIT_NORMAL_VECTOR[collision_value])
-            if collision_value in [LEFT_PADDLE, RIGHT_PADDLE]:
+            if collision_value == LEFT_PADDLE:
                 self.ball.accelerate(BALL_Y_ACCELERATION, BALL_X_ACCELERATION)
+            elif collision_value == RIGHT_PADDLE:
+                self.ball.accelerate(-BALL_Y_ACCELERATION, -BALL_X_ACCELERATION)
         elif collision_value in [DEATH_ZONE_LEFT, DEATH_ZONE_RIGHT]:
             # self.ball.bounce(OBJECT_TO_UNIT_NORMAL_VECTOR[collision_value])
             self._handle_life_lost(collision_value)
