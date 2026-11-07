@@ -3,3 +3,5 @@ black:
 
 mypy-strict:
 	MYPYPATH=src/ uv run mypy --config-file pyproject.toml --strict --show-error-codes .
+
+check: mypy-strict
