@@ -1,22 +1,13 @@
 import curses
-import sys
 import time
 import random
 from enum import IntEnum
 from typing import List, Tuple, Optional
 
 import numpy as np
-import numpy.typing as npt
+from numpy import typing as npt
 
-from pong_common import TICK_SLEEP_TIME, GRID_SIZE_X, GRID_SIZE_Y, LEFT_PADDLE_X_VALUE, RIGHT_PADDLE_X_VALUE, DEATH_ZONE_LEFT, DEATH_ZONE_RIGHT, FLOOR, \
-    CEILING, LEFT_PADDLE, RIGHT_PADDLE, BALL, BOUNCING_OBJECTS, DISPLAY_CHARACTERS, OBJECT_TO_UNIT_NORMAL_VECTOR, KEY_W, KEY_S, KEY_UP_ARROW, KEY_DOWN_ARROW, \
-    STARTING_LIVES, init_grid
-
-STARTING_Y_VELOCITY = 0.1
-STARTING_X_VELOCITY = 0.3
-
-BALL_X_ACCELERATION = 0.025  # ball accelerates this amount per bounce on a paddle
-BALL_Y_ACCELERATION = 0.0625
+Grid = npt.NDArray[np.float32]
 
 
 class Player(IntEnum):
@@ -31,11 +22,68 @@ class PlayerAction(IntEnum):
     RIGHT_PADDLE_DOWN = 3
 
 
+# Game constants
+EMPTY_SPACE = 0
+DEATH_ZONE_LEFT = 1
+DEATH_ZONE_RIGHT = 2
+FLOOR = 3
+CEILING = 4
+LEFT_PADDLE = 5
+RIGHT_PADDLE = 6
+BALL = 9
+
+BOUNCING_OBJECTS = [FLOOR, CEILING, LEFT_PADDLE, RIGHT_PADDLE]
+DEATH_ZONES = [DEATH_ZONE_LEFT, DEATH_ZONE_RIGHT]
+
+STARTING_LIVES = 3
+
+# TUI Game
+TICK_SLEEP_TIME = 1 / 30
+
+DISPLAY_CHARACTERS = {
+    EMPTY_SPACE: " ",
+    DEATH_ZONE_LEFT: "|",
+    DEATH_ZONE_RIGHT: "|",
+    CEILING: "-",
+    FLOOR: "-",
+    BALL: "0",
+    LEFT_PADDLE: "[",
+    RIGHT_PADDLE: "]",
+}
+
+KEY_W = 119
+KEY_S = 115
+KEY_UP_ARROW = 259
+KEY_DOWN_ARROW = 258
+
 KEYSTROKE_TO_ACTION = {
     KEY_W: PlayerAction.LEFT_PADDLE_UP,
     KEY_S: PlayerAction.LEFT_PADDLE_DOWN,
     KEY_UP_ARROW: PlayerAction.RIGHT_PADDLE_UP,
     KEY_DOWN_ARROW: PlayerAction.RIGHT_PADDLE_DOWN,
+}
+
+# Physical constants
+GRID_SIZE_Y = 10
+GRID_SIZE_X = 30
+
+LEFT_PADDLE_X_VALUE = 1
+RIGHT_PADDLE_X_VALUE = GRID_SIZE_X - 2
+
+STARTING_Y_VELOCITY = 0.1
+STARTING_X_VELOCITY = 0.3
+
+BALL_X_ACCELERATION = 0.025  # ball accelerates this amount per bounce on a paddle
+BALL_Y_ACCELERATION = 0.0625
+
+# Maps object to unit normal vector, used in the calculation of velocity after a bounce.
+OBJECT_TO_UNIT_NORMAL_VECTOR = {
+    DEATH_ZONE_LEFT: np.array((0, 1)),  # Vertical wall (left)
+    DEATH_ZONE_RIGHT: np.array((0, -1)),  # Vertical wall (right)
+    FLOOR: np.array((1, 0)),  # Horizontal floor
+    CEILING: np.array((-1, 0)),  # Horizontal ceiling
+    LEFT_PADDLE: np.array((0, 1)),
+    RIGHT_PADDLE: np.array((0, -1)),
 }
 
 
@@ -177,16 +225,29 @@ class Game:
 
         self.left_lives = STARTING_LIVES
         self.right_lives = STARTING_LIVES
+        self.last_life_lost_tick: Optional[int] = None  # set to tick_index when a player loses a life for display in TUI
         self.winner: Optional[Player] = None
 
         self.tick_index = 0
         self.log_messages: List[str] = []
 
-        self.grid = init_grid()
+        self.grid = self._init_grid()
 
     def _log(self, message: str) -> None:
         """Appends log message"""
         self.logger.add_log_message(f"{self.tick_index}: {message}")
+
+    @staticmethod
+    def _init_grid() -> Grid:
+        """Initialises the grid with zeros"""
+
+        grid = np.zeros((GRID_SIZE_Y, GRID_SIZE_X), dtype=np.float32)
+        grid[:, [0]] = DEATH_ZONE_LEFT  # create death zone
+        grid[:, [-1]] = DEATH_ZONE_RIGHT  # create death zone
+        grid[[0], :] = CEILING
+        grid[[-1], :] = FLOOR
+
+        return grid
 
     def _register_player_action(self, player_action: PlayerAction) -> None:
         """Responds to a player action by updating the paddle state"""
@@ -250,6 +311,7 @@ class Game:
         else:
             self.ball.reset_to_start()
 
+        self.last_life_lost_tick = self.tick_index
         self._log(f"Life lost to death zone, new scores: Left {self.left_lives} : {self.right_lives} Right")
 
     def tick(self, player_action: Optional[PlayerAction]) -> None:
@@ -326,9 +388,12 @@ class TerminalApp:
         # overlay ball
         self.stdscr.addstr(self.game.ball.rounded_position[0], self.game.ball.rounded_position[1], self.game.ball.display_character)
 
-        # overlay score
-        score = f"Left {self.game.left_lives} : {self.game.right_lives} Right".center(GRID_SIZE_X)
-        self.stdscr.addstr(len(self.game.grid), 0, score)
+        # overlay bottom line
+        if self.game.last_life_lost_tick is not None and self.game.tick_index - self.game.last_life_lost_tick <= 25:
+            bottom_line = f"Life lost (×_×)".center(GRID_SIZE_X)
+        else:
+            bottom_line = f"Left {self.game.left_lives} : {self.game.right_lives} Right".center(GRID_SIZE_X)
+        self.stdscr.addstr(len(self.game.grid), 0, bottom_line)
         self.stdscr.refresh()
 
     def run(self) -> None:
