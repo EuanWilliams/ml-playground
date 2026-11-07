@@ -9,58 +9,14 @@ from typing import Tuple, List
 import numpy as np
 import numpy.typing as npt
 
+from pong_constants import TICK_SLEEP_TIME, GRID_SIZE_X, GRID_SIZE_Y, LEFT_PADDLE_X_VALUE, RIGHT_PADDLE_X_VALUE, EMPTY_SPACE, DEATH_ZONE_LEFT, DEATH_ZONE_RIGHT, \
+    FLOOR, CEILING, LEFT_PADDLE, RIGHT_PADDLE, BALL, BOUNCING_OBJECTS, DEATH_ZONES, DISPLAY_CHARACTERS, OBJECT_TO_UNIT_NORMAL_VECTOR, KEY_W, KEY_S, \
+    KEY_UP_ARROW, KEY_DOWN_ARROW, STARTING_LIVES
+
 Grid = npt.NDArray[np.float32]
 
 RANDOM = np.random.default_rng()
 
-ITERATIONS = 1000
-TICK_SLEEP_TIME = 1 / 30
-
-GRID_SIZE_X = 30
-GRID_SIZE_Y = 10
-
-LEFT_PADDLE_X_VALUE = 1
-RIGHT_PADDLE_X_VALUE = GRID_SIZE_X - 2
-
-EMPTY_SPACE = 0
-DEATH_ZONE_LEFT = 1
-DEATH_ZONE_RIGHT = 2
-FLOOR = 3
-CEILING = 4
-LEFT_PADDLE = 5
-RIGHT_PADDLE = 6
-BALL = 9
-
-BOUNCING_OBJECTS = [FLOOR, CEILING, LEFT_PADDLE, RIGHT_PADDLE]
-DEATH_ZONES = [DEATH_ZONE_LEFT, DEATH_ZONE_RIGHT]
-
-DISPLAY_CHARACTERS = {
-    EMPTY_SPACE: " ",
-    DEATH_ZONE_LEFT: "|",
-    DEATH_ZONE_RIGHT: "|",
-    CEILING: "-",
-    FLOOR: "-",
-    BALL: "0",
-    LEFT_PADDLE: "[",
-    RIGHT_PADDLE: "]",
-}
-
-# Maps object to unit normal vector, used in the calculation of velocity after a bounce.
-OBJECT_TO_UNIT_NORMAL_VECTOR = {
-    DEATH_ZONE_LEFT: np.array((0, 1)),  # Vertical wall (left)
-    DEATH_ZONE_RIGHT: np.array((0, -1)),  # Vertical wall (right)
-    FLOOR: np.array((1, 0)),  # Horizontal floor
-    CEILING: np.array((-1, 0)),  # Horizontal ceiling
-    LEFT_PADDLE: np.array((0, 1)),
-    RIGHT_PADDLE: np.array((0, -1)),
-}
-
-KEY_W = 119
-KEY_S = 115
-KEY_UP_ARROW = 259
-KEY_DOWN_ARROW = 258
-
-STARTING_LIVES = 3
 
 MIN_STARTING_Y_VELOCITY = 5
 MAX_STARTING_Y_VELOCITY = 20
@@ -318,7 +274,7 @@ def main() -> None:
     """Entry point"""
 
     state = init_state()
-    log_messages = []
+    log_messages: List[str] = []
 
     try:
         curses.wrapper(lambda stdscr: run_main_loop(stdscr, state, log_messages))

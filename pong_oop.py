@@ -6,30 +6,14 @@ from enum import IntEnum
 from typing import List, Tuple, Optional
 
 import numpy as np
+import numpy.typing as npt
 
 from pong_procedural import (
-    TICK_SLEEP_TIME,
-    KEY_S,
-    KEY_W,
-    KEY_UP_ARROW,
-    KEY_DOWN_ARROW,
-    GRID_SIZE_Y,
-    GRID_SIZE_X,
-    DEATH_ZONE_LEFT,
-    DEATH_ZONE_RIGHT,
-    CEILING,
-    FLOOR,
-    DISPLAY_CHARACTERS,
-    STARTING_LIVES,
-    LEFT_PADDLE_X_VALUE,
-    RIGHT_PADDLE_X_VALUE,
-    LEFT_PADDLE,
-    RIGHT_PADDLE,
-    BALL,
-    BOUNCING_OBJECTS,
-    OBJECT_TO_UNIT_NORMAL_VECTOR,
     init_grid,
 )
+from pong_constants import TICK_SLEEP_TIME, GRID_SIZE_X, GRID_SIZE_Y, LEFT_PADDLE_X_VALUE, RIGHT_PADDLE_X_VALUE, DEATH_ZONE_LEFT, DEATH_ZONE_RIGHT, FLOOR, \
+    CEILING, LEFT_PADDLE, RIGHT_PADDLE, BALL, BOUNCING_OBJECTS, DISPLAY_CHARACTERS, OBJECT_TO_UNIT_NORMAL_VECTOR, KEY_W, KEY_S, KEY_UP_ARROW, KEY_DOWN_ARROW, \
+    STARTING_LIVES
 
 STARTING_Y_VELOCITY = 0.1
 STARTING_X_VELOCITY = 0.3
@@ -38,22 +22,55 @@ BALL_X_ACCELERATION = 0.025  # ball accelerates this amount per bounce on a padd
 BALL_Y_ACCELERATION = 0.0625
 
 
-class PaddleSide(IntEnum):
+class Player(IntEnum):
     LEFT = 0
     RIGHT = 1
+
+
+class PlayerAction(IntEnum):
+    LEFT_PADDLE_UP = 0
+    LEFT_PADDLE_DOWN = 1
+    RIGHT_PADDLE_UP = 2
+    RIGHT_PADDLE_DOWN = 3
+
+
+KEYSTROKE_TO_ACTION = {
+    KEY_W: PlayerAction.LEFT_PADDLE_UP,
+    KEY_S: PlayerAction.LEFT_PADDLE_DOWN,
+    KEY_UP_ARROW: PlayerAction.RIGHT_PADDLE_UP,
+    KEY_DOWN_ARROW: PlayerAction.RIGHT_PADDLE_DOWN,
+}
+
+
+class GameLogger:
+    """Simple game logger for storing and emitting log messages at the end of game if needed."""
+
+    def __init__(self) -> None:
+        self.log_messages: List[str] = []
+
+    def add_log_message(self, message: str) -> None:
+        """Add a log message to list"""
+
+        self.log_messages.append(message)
+
+    def output_log_messages(self) -> None:
+        """Emits log messages"""
+
+        for log_message in self.log_messages:
+            print(log_message)
 
 
 class Paddle:
     """A paddle"""
 
-    def __init__(self, side: PaddleSide, starting_y: int) -> None:
-        self.side = side
+    def __init__(self, player: Player, starting_y: int) -> None:
+        self.player = player
         self.position_y = starting_y
 
     @property
     def position_x(self) -> int:
         """Returns the x position value based on side"""
-        return RIGHT_PADDLE_X_VALUE if self._get_side_safe() == PaddleSide.RIGHT else LEFT_PADDLE_X_VALUE
+        return RIGHT_PADDLE_X_VALUE if self._get_side_safe() == Player.RIGHT else LEFT_PADDLE_X_VALUE
 
     @property
     def position(self) -> Tuple[int, int]:
@@ -63,15 +80,15 @@ class Paddle:
     @property
     def display_character(self) -> str:
         """Returns the display character to render"""
-        return DISPLAY_CHARACTERS[RIGHT_PADDLE] if self._get_side_safe() == PaddleSide.RIGHT else DISPLAY_CHARACTERS[LEFT_PADDLE]
+        return DISPLAY_CHARACTERS[RIGHT_PADDLE] if self._get_side_safe() == Player.RIGHT else DISPLAY_CHARACTERS[LEFT_PADDLE]
 
-    def _get_side_safe(self) -> PaddleSide:
+    def _get_side_safe(self) -> Player:
         """Returns the side after validating"""
 
-        if self.side not in [PaddleSide.LEFT, PaddleSide.RIGHT]:
-            raise ValueError(f"Invalid side: {self.side}")
+        if self.player not in [Player.LEFT, Player.RIGHT]:
+            raise ValueError(f"Invalid side: {self.player}")
 
-        return self.side
+        return self.player
 
     def move_paddle(self, increment: int) -> None:
         """Moves the ball a single increment"""
@@ -111,7 +128,7 @@ class Ball:
         self.position_y = self.position_y + self.velocity_y
         self.position_x = self.position_x + self.velocity_x
 
-    def bounce(self, unit_normal_vector: Tuple[int, int]) -> None:
+    def bounce(self, unit_normal_vector: npt.NDArray[np.uint8]) -> None:
         """Bounces the ball, calculates the resulting velocity of the ball after the bounce.
         Calculates resulting velocity using the equation:
 
@@ -153,17 +170,18 @@ class Ball:
 class Game:
     """The game"""
 
-    def __init__(self, stdscr: curses.window) -> None:
+    def __init__(self, logger: GameLogger) -> None:
+        self.logger = logger
+
         self.ball = Ball()
         paddle_starting_y = GRID_SIZE_Y // 2
-        self.left_paddle = Paddle(PaddleSide.LEFT, starting_y=paddle_starting_y)
-        self.right_paddle = Paddle(PaddleSide.RIGHT, starting_y=paddle_starting_y)
+        self.left_paddle = Paddle(Player.LEFT, starting_y=paddle_starting_y)
+        self.right_paddle = Paddle(Player.RIGHT, starting_y=paddle_starting_y)
 
         self.left_lives = STARTING_LIVES
         self.right_lives = STARTING_LIVES
+        self.winner: Optional[Player] = None
 
-        self.stdscr = stdscr
-        self.stdscr.nodelay(True)
         self.tick_index = 0
         self.log_messages: List[str] = []
 
@@ -171,40 +189,25 @@ class Game:
 
     def _log(self, message: str) -> None:
         """Appends log message"""
-        self.log_messages.append(f"{self.tick_index}: {message}")
+        self.logger.add_log_message(f"{self.tick_index}: {message}")
 
-    def _render(self) -> None:
-        """Renders the grid"""
+    def _register_player_action(self, player_action: PlayerAction) -> None:
+        """Responds to a player action by updating the paddle state"""
 
-        # overlay grid
-        frame = "\n".join("".join(DISPLAY_CHARACTERS[cell] for cell in row) for row in self.grid)
-        self.stdscr.addstr(0, 0, frame)
+        self._log(f"Registering player action: {player_action.name}")
 
-        # overlay paddles
-        self.stdscr.addstr(self.left_paddle.position[0], self.left_paddle.position[1], self.left_paddle.display_character)
-        self.stdscr.addstr(self.right_paddle.position[0], self.right_paddle.position[1], self.right_paddle.display_character)
-
-        # overlay ball
-        self.stdscr.addstr(self.ball.rounded_position[0], self.ball.rounded_position[1], self.ball.display_character)
-
-        # overlay score
-        score = f"Left {self.left_lives} : {self.right_lives} Right".center(GRID_SIZE_X)
-        self.stdscr.addstr(len(self.grid), 0, score)
-        self.stdscr.refresh()
-
-    def _register_keystroke(self, keystroke: int) -> None:
-        """Responds to a keystroke by updating the paddle state"""
-
-        if keystroke == KEY_W:
+        if player_action == PlayerAction.LEFT_PADDLE_UP:
             self.left_paddle.move_paddle(-1)
-        elif keystroke == KEY_S:
+        elif player_action == PlayerAction.LEFT_PADDLE_DOWN:
             self.left_paddle.move_paddle(1)
-        elif keystroke == KEY_UP_ARROW:
-            self.right_paddle.move_paddle(-1)
-        elif keystroke == KEY_DOWN_ARROW:
-            self.right_paddle.move_paddle(1)
+        elif player_action == PlayerAction.RIGHT_PADDLE_UP:
+            if self.right_paddle is not None:
+                self.right_paddle.move_paddle(-1)
+        elif player_action == PlayerAction.RIGHT_PADDLE_DOWN:
+            if self.right_paddle is not None:
+                self.right_paddle.move_paddle(1)
         else:
-            raise ValueError(f"Unhandled keystroke: {keystroke}")
+            raise ValueError(f"Unhandled player action: {player_action}")
 
     @staticmethod
     def _collides_with_paddle(ball_position_y: int, ball_position_x: int, paddle_position_y: int, paddle_position_x: int) -> bool:
@@ -231,16 +234,71 @@ class Game:
         else:
             return None
 
+    def _handle_life_lost(self, death_zone: int) -> None:
+        """Handles a player losing a life"""
+
+        self._log(f"Life lost to death zone {death_zone}")
+
+        if death_zone == DEATH_ZONE_LEFT:
+            self.left_lives -= 1
+        elif death_zone == DEATH_ZONE_RIGHT:
+            self.right_lives -= 1
+        else:
+            raise ValueError(f"Invalid object for losing a life: {death_zone}")
+
+        if self.left_lives == 0:
+            self.winner = Player.LEFT
+        elif self.right_lives == 0:
+            self.winner = Player.RIGHT
+        else:
+            self.ball.reset_to_start()
+
+        self._log(f"Life lost to death zone, new scores: Left {self.left_lives} : {self.right_lives} Right")
+
+    def tick(self, player_action: Optional[PlayerAction]) -> None:
+        """Ticks the game's state by one increment"""
+
+        self._log("Starting tick")
+
+        # Handle the player's action
+        if player_action is not None:
+            self._register_player_action(player_action)
+
+        # Update ball position
+        collision_value = self._check_collision()
+        if collision_value in BOUNCING_OBJECTS:
+            self.ball.bounce(OBJECT_TO_UNIT_NORMAL_VECTOR[collision_value])
+            if collision_value == LEFT_PADDLE:
+                self.ball.accelerate(BALL_Y_ACCELERATION, BALL_X_ACCELERATION)
+            elif collision_value == RIGHT_PADDLE:
+                self.ball.accelerate(-BALL_Y_ACCELERATION, -BALL_X_ACCELERATION)
+        elif collision_value in [DEATH_ZONE_LEFT, DEATH_ZONE_RIGHT]:
+            self._handle_life_lost(collision_value)
+        else:
+            self._log("No collision, ticking ball")
+            self.ball.tick()
+
+        self.tick_index += 1
+
+
+class TerminalApp:
+    """Terminal app for running pong interactively in the terminal"""
+
+    def __init__(self, stdscr: curses.window, game: Game, logger: GameLogger) -> None:
+        self.stdscr = stdscr
+        self.game = game
+        self.logger = logger
+
     def _game_over(self) -> None:
         """Splashes a screen to say game over."""
-        winner, loser = ("Left", "Right") if self.right_lives == 0 else ("Right", "Left")
+        winner, loser = ("Left", "Right") if self.game.right_lives == 0 else ("Right", "Left")
         lines = [
             "GAME OVER",
             "",
             f"{winner} wins.",
             f"{loser} loses.",
             "",
-            f"Left {self.left_lives} : {self.right_lives} Right",
+            f"Left {self.game.left_lives} : {self.game.right_lives} Right",
             "",
             "Press any key",
         ]
@@ -259,74 +317,58 @@ class Game:
 
         sys.exit()
 
-    def _handle_life_lost(self, death_zone: int) -> None:
-        """Handles a player losing a life"""
+    def _render(self) -> None:
+        """Renders the current status to terminal"""
 
-        if death_zone == DEATH_ZONE_LEFT:
-            self.left_lives -= 1
-        elif death_zone == DEATH_ZONE_RIGHT:
-            self.right_lives -= 1
-        else:
-            raise ValueError(f"Invalid object for losing a life: {death_zone}")
+        # overlay grid
+        frame = "\n".join("".join(DISPLAY_CHARACTERS[cell] for cell in row) for row in self.game.grid)
+        self.stdscr.addstr(0, 0, frame)
 
-        if self.left_lives == 0 or self.right_lives == 0:
-            self._game_over()
+        # overlay paddles
+        self.stdscr.addstr(self.game.left_paddle.position[0], self.game.left_paddle.position[1], self.game.left_paddle.display_character)
+        self.stdscr.addstr(self.game.right_paddle.position[0], self.game.right_paddle.position[1], self.game.right_paddle.display_character)
 
-        self.ball.reset_to_start()
+        # overlay ball
+        self.stdscr.addstr(self.game.ball.rounded_position[0], self.game.ball.rounded_position[1], self.game.ball.display_character)
 
-    def _tick(self) -> None:
-        """Ticks the game's state by one increment"""
-
-        self._log("Starting tick")
-
-        # Update ball position
-        collision_value = self._check_collision()
-        if collision_value in BOUNCING_OBJECTS:
-            self.ball.bounce(OBJECT_TO_UNIT_NORMAL_VECTOR[collision_value])
-            if collision_value == LEFT_PADDLE:
-                self.ball.accelerate(BALL_Y_ACCELERATION, BALL_X_ACCELERATION)
-            elif collision_value == RIGHT_PADDLE:
-                self.ball.accelerate(-BALL_Y_ACCELERATION, -BALL_X_ACCELERATION)
-        elif collision_value in [DEATH_ZONE_LEFT, DEATH_ZONE_RIGHT]:
-            # self.ball.bounce(OBJECT_TO_UNIT_NORMAL_VECTOR[collision_value])
-            self._handle_life_lost(collision_value)
-        else:
-            self.ball.tick()
-
-    def _main_loop(self) -> None:
-        """Runs the main loop to game completion"""
-
-        while True:
-            time.sleep(TICK_SLEEP_TIME)
-
-            keystroke = self.stdscr.getch()
-            if keystroke != curses.ERR:
-                self._log(f"Keystroke found {keystroke}")
-                if keystroke in (KEY_S, KEY_W, KEY_UP_ARROW, KEY_DOWN_ARROW):
-                    self._register_keystroke(keystroke)
-
-            self._tick()
-            self._render()
-            self.tick_index += 1
+        # overlay score
+        score = f"Left {self.game.left_lives} : {self.game.right_lives} Right".center(GRID_SIZE_X)
+        self.stdscr.addstr(len(self.game.grid), 0, score)
+        self.stdscr.refresh()
 
     def run(self) -> None:
-        """Runs the game, starts the main loop."""
+        """Runs the game, render status to terminal"""
 
         try:
-            self._main_loop()
+            self.stdscr.nodelay(True)
+
+            while self.game.winner is None:
+                time.sleep(TICK_SLEEP_TIME)
+
+                action = None
+                keystroke = self.stdscr.getch()
+                if keystroke != curses.ERR:
+                    if keystroke in (KEY_S, KEY_W, KEY_UP_ARROW, KEY_DOWN_ARROW):
+                        action = KEYSTROKE_TO_ACTION[keystroke]
+
+                self.game.tick(action)
+                self._render()
+
+            curses.endwin()
+            print(f"Final score: Left {self.game.left_lives} : {self.game.right_lives} Right")
         except Exception:
             curses.endwin()
-            for log_message in self.log_messages:
-                print(log_message)
-
+            self.logger.output_log_messages()
             raise
 
 
 def main(stdscr: curses.window) -> None:
     """Main function"""
 
-    game = Game(stdscr)
-    game.run()
+    logger = GameLogger()
+    game = Game(logger)
+    terminal_app = TerminalApp(stdscr, game, logger)
+    terminal_app.run()
 
 
 if __name__ == "__main__":
