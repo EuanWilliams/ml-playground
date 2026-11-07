@@ -1,4 +1,7 @@
 import numpy as np
+import numpy.typing as npt
+
+Grid = npt.NDArray[np.float32]
 
 TICK_SLEEP_TIME = 1 / 30
 
@@ -46,3 +49,15 @@ KEY_S = 115
 KEY_UP_ARROW = 259
 KEY_DOWN_ARROW = 258
 STARTING_LIVES = 3
+
+
+def init_grid() -> Grid:
+    """Initialises the grid with zeros"""
+
+    grid = np.zeros((GRID_SIZE_Y, GRID_SIZE_X), dtype=np.float32)
+    grid[:, [0]] = DEATH_ZONE_LEFT  # create death zone
+    grid[:, [-1]] = DEATH_ZONE_RIGHT  # create death zone
+    grid[[0], :] = CEILING
+    grid[[-1], :] = FLOOR
+
+    return grid

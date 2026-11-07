@@ -7,13 +7,10 @@ from dataclasses import dataclass
 from typing import Tuple, List
 
 import numpy as np
-import numpy.typing as npt
 
-from pong_constants import TICK_SLEEP_TIME, GRID_SIZE_X, GRID_SIZE_Y, LEFT_PADDLE_X_VALUE, RIGHT_PADDLE_X_VALUE, EMPTY_SPACE, DEATH_ZONE_LEFT, DEATH_ZONE_RIGHT, \
-    FLOOR, CEILING, LEFT_PADDLE, RIGHT_PADDLE, BALL, BOUNCING_OBJECTS, DEATH_ZONES, DISPLAY_CHARACTERS, OBJECT_TO_UNIT_NORMAL_VECTOR, KEY_W, KEY_S, \
-    KEY_UP_ARROW, KEY_DOWN_ARROW, STARTING_LIVES
-
-Grid = npt.NDArray[np.float32]
+from pong_common import TICK_SLEEP_TIME, GRID_SIZE_X, GRID_SIZE_Y, LEFT_PADDLE_X_VALUE, RIGHT_PADDLE_X_VALUE, EMPTY_SPACE, DEATH_ZONE_LEFT, DEATH_ZONE_RIGHT, \
+    LEFT_PADDLE, RIGHT_PADDLE, BALL, BOUNCING_OBJECTS, DEATH_ZONES, DISPLAY_CHARACTERS, OBJECT_TO_UNIT_NORMAL_VECTOR, KEY_W, KEY_S, \
+    KEY_UP_ARROW, KEY_DOWN_ARROW, STARTING_LIVES, init_grid
 
 RANDOM = np.random.default_rng()
 
@@ -70,19 +67,6 @@ def render(stdscr: curses.window, state: State) -> None:
 
     score = f"Left {state.left_lives} : {state.right_lives} Right".center(GRID_SIZE_X)
     stdscr.addstr(len(grid), 0, score)
-    # stdscr.refresh()
-
-
-def init_grid() -> Grid:
-    """Initialises the grid with zeros"""
-
-    grid = np.zeros((GRID_SIZE_Y, GRID_SIZE_X), dtype=np.float32)
-    grid[:, [0]] = DEATH_ZONE_LEFT  # create death zone
-    grid[:, [-1]] = DEATH_ZONE_RIGHT  # create death zone
-    grid[[0], :] = CEILING
-    grid[[-1], :] = FLOOR
-
-    return grid
 
 
 def ball_to_start_position(state: State) -> None:

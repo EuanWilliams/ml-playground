@@ -8,12 +8,9 @@ from typing import List, Tuple, Optional
 import numpy as np
 import numpy.typing as npt
 
-from pong_procedural import (
-    init_grid,
-)
-from pong_constants import TICK_SLEEP_TIME, GRID_SIZE_X, GRID_SIZE_Y, LEFT_PADDLE_X_VALUE, RIGHT_PADDLE_X_VALUE, DEATH_ZONE_LEFT, DEATH_ZONE_RIGHT, FLOOR, \
+from pong_common import TICK_SLEEP_TIME, GRID_SIZE_X, GRID_SIZE_Y, LEFT_PADDLE_X_VALUE, RIGHT_PADDLE_X_VALUE, DEATH_ZONE_LEFT, DEATH_ZONE_RIGHT, FLOOR, \
     CEILING, LEFT_PADDLE, RIGHT_PADDLE, BALL, BOUNCING_OBJECTS, DISPLAY_CHARACTERS, OBJECT_TO_UNIT_NORMAL_VECTOR, KEY_W, KEY_S, KEY_UP_ARROW, KEY_DOWN_ARROW, \
-    STARTING_LIVES
+    STARTING_LIVES, init_grid
 
 STARTING_Y_VELOCITY = 0.1
 STARTING_X_VELOCITY = 0.3
@@ -315,8 +312,6 @@ class TerminalApp:
         self.stdscr.nodelay(False)
         self.stdscr.getch()
 
-        sys.exit()
-
     def _render(self) -> None:
         """Renders the current status to terminal"""
 
@@ -354,8 +349,7 @@ class TerminalApp:
                 self.game.tick(action)
                 self._render()
 
-            curses.endwin()
-            print(f"Final score: Left {self.game.left_lives} : {self.game.right_lives} Right")
+            self._game_over()
         except Exception:
             curses.endwin()
             self.logger.output_log_messages()
