@@ -7,15 +7,36 @@ from typing import List, Tuple, Optional
 
 import numpy as np
 
-from pong_procedural import TICK_SLEEP_TIME, KEY_S, KEY_W, KEY_UP_ARROW, KEY_DOWN_ARROW, GRID_SIZE_Y, GRID_SIZE_X, DEATH_ZONE_LEFT, DEATH_ZONE_RIGHT, \
-    CEILING, FLOOR, DISPLAY_CHARACTERS, STARTING_LIVES, LEFT_PADDLE_X_VALUE, RIGHT_PADDLE_X_VALUE, LEFT_PADDLE, RIGHT_PADDLE, BALL, BOUNCING_OBJECTS, \
-    OBJECT_TO_UNIT_NORMAL_VECTOR, init_grid
+from pong_procedural import (
+    TICK_SLEEP_TIME,
+    KEY_S,
+    KEY_W,
+    KEY_UP_ARROW,
+    KEY_DOWN_ARROW,
+    GRID_SIZE_Y,
+    GRID_SIZE_X,
+    DEATH_ZONE_LEFT,
+    DEATH_ZONE_RIGHT,
+    CEILING,
+    FLOOR,
+    DISPLAY_CHARACTERS,
+    STARTING_LIVES,
+    LEFT_PADDLE_X_VALUE,
+    RIGHT_PADDLE_X_VALUE,
+    LEFT_PADDLE,
+    RIGHT_PADDLE,
+    BALL,
+    BOUNCING_OBJECTS,
+    OBJECT_TO_UNIT_NORMAL_VECTOR,
+    init_grid,
+)
 
 STARTING_Y_VELOCITY = 0.1
 STARTING_X_VELOCITY = 0.3
 
-BALL_X_ACCELERATION = 0.05  # ball accelerates this amount per bounce on a paddle
-BALL_Y_ACCELERATION = 0.0125
+BALL_X_ACCELERATION = 0.025  # ball accelerates this amount per bounce on a paddle
+BALL_Y_ACCELERATION = 0.0625
+
 
 class PaddleSide(IntEnum):
     LEFT = 0
@@ -195,13 +216,13 @@ class Game:
 
         next_position_y, next_position_x = self.ball.next_position
 
-        if next_position_y == 0:
+        if next_position_y <= 0:
             return CEILING
-        elif next_position_y == GRID_SIZE_Y - 1:
+        elif next_position_y >= GRID_SIZE_Y - 1:
             return FLOOR
-        elif next_position_x == 0:
+        elif next_position_x <= 0:
             return DEATH_ZONE_LEFT
-        elif next_position_x == GRID_SIZE_X - 1:
+        elif next_position_x >= GRID_SIZE_X - 1:
             return DEATH_ZONE_RIGHT
         elif self._collides_with_paddle(next_position_y, next_position_x, self.left_paddle.position_y, self.left_paddle.position_x):
             return LEFT_PADDLE
@@ -298,11 +319,15 @@ class Game:
             for log_message in self.log_messages:
                 print(log_message)
 
+            raise
+
+
 def main(stdscr: curses.window) -> None:
     """Main function"""
 
     game = Game(stdscr)
     game.run()
+
 
 if __name__ == "__main__":
     curses.wrapper(main)

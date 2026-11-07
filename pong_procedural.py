@@ -1,4 +1,5 @@
 """A CLI Pong game"""
+
 import random
 import curses
 import time
@@ -158,7 +159,7 @@ def init_state() -> State:
         right_paddle_velocity=0,
         grid=grid,
         left_lives=STARTING_LIVES,
-        right_lives=STARTING_LIVES
+        right_lives=STARTING_LIVES,
     )
 
     ball_to_start_position(state)
