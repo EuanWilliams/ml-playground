@@ -198,8 +198,8 @@ class Ball:
     def accelerate(self, delta_y: float, delta_x: float) -> None:
         """Accelerates the ball a provided amount"""
 
-        self.velocity_y = math.copysign(self.velocity_y + delta_y, self.velocity_y)
-        self.velocity_x = math.copysign(self.velocity_x + delta_x, self.velocity_x)
+        self.velocity_y += math.copysign(delta_y, self.velocity_y)
+        self.velocity_x += math.copysign(delta_x, self.velocity_x)
 
     def set_position(self, position: Tuple[int, int]) -> None:
         """Sets the balls position"""
