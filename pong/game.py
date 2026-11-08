@@ -1,5 +1,5 @@
 from enum import IntEnum
-from typing import List, Optional, Protocol, Dict
+from typing import List, Optional, Dict
 
 from pong.ball import Ball
 from pong.paddle import Paddle
@@ -54,11 +54,6 @@ class PlayerAction(IntEnum):
     LEFT_PADDLE_DOWN = 1
     RIGHT_PADDLE_UP = 2
     RIGHT_PADDLE_DOWN = 3
-
-
-class Controller(Protocol):
-    def get_move(self, game: Game) -> PaddleMove:
-        pass
 
 
 class GameLogger:

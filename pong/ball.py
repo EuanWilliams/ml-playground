@@ -7,7 +7,7 @@ from typing import Tuple
 import numpy as np
 from numpy import typing as npt
 
-from pong.constants import GRID_SIZE_Y, GRID_SIZE_X, STARTING_Y_VELOCITY, STARTING_X_VELOCITY
+from pong.constants import GRID_SIZE_Y, GRID_SIZE_X, MAX_STARTING_ANGLE, STARTING_VELOCITY_SCALAR
 
 
 class Ball:
@@ -71,10 +71,12 @@ class Ball:
     def reset_to_start(self) -> None:
         """Sets the ball to the middle of the frame and randomises starting velocity"""
 
+        angle = random.uniform(-MAX_STARTING_ANGLE, MAX_STARTING_ANGLE)
+        direction = random.choice((-1, 1))
         # y velocity in positions per tick - positive means moving top to bottom
-        self.velocity_y = STARTING_Y_VELOCITY * random.choice([1, -1])
+        self.velocity_y = STARTING_VELOCITY_SCALAR * math.sin(angle)
         # x velocity in positions per tick - positive means moving left to right
-        self.velocity_x = STARTING_X_VELOCITY * random.choice([1, -1])
+        self.velocity_x = direction * STARTING_VELOCITY_SCALAR * math.cos(angle)
 
         self.position_y = GRID_SIZE_Y // 2
         self.position_x = GRID_SIZE_X // 2

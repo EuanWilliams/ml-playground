@@ -2,12 +2,13 @@
 
 import curses
 import time
-from typing import List, Optional, Dict
+from typing import Dict
 
 import numpy as np
 import numpy.typing as npt
 
-from pong.game import Game, GameLogger, PlayerAction, Controller, PaddleMove, Player
+from pong.controllers import KeyboardController, Controller, AutoController, Observation
+from pong.game import Game, GameLogger, PlayerAction, Player
 from pong.constants import EMPTY_SPACE, DEATH_ZONE_LEFT, DEATH_ZONE_RIGHT, FLOOR, CEILING, LEFT_PADDLE, RIGHT_PADDLE, BALL, GRID_SIZE_Y, GRID_SIZE_X
 
 Grid = npt.NDArray[np.float32]
@@ -30,35 +31,6 @@ KEY_W = 119
 KEY_S = 115
 KEY_UP_ARROW = 259
 KEY_DOWN_ARROW = 258
-
-KEYSTROKE_TO_ACTION = {
-    KEY_W: PlayerAction.LEFT_PADDLE_UP,
-    KEY_S: PlayerAction.LEFT_PADDLE_DOWN,
-    KEY_UP_ARROW: PlayerAction.RIGHT_PADDLE_UP,
-    KEY_DOWN_ARROW: PlayerAction.RIGHT_PADDLE_DOWN,
-}
-
-
-class KeyboardController(Controller):
-    def __init__(self, key_press_up: List[int], key_press_down: List[int]) -> None:
-        self.last_key_press: Optional[int] = None
-        self.key_press_up = key_press_up
-        self.key_press_down = key_press_down
-
-    def get_move(self, game: Game) -> PaddleMove:
-        """Returns the next move."""
-
-        if self.last_key_press in self.key_press_up:
-            return PaddleMove.UP
-        elif self.last_key_press in self.key_press_down:
-            return PaddleMove.DOWN
-        else:
-            return PaddleMove.STAY
-
-    def add_keypress(self, keypress: Optional[int]) -> None:
-        """Stores the keypress."""
-
-        self.last_key_press = keypress
 
 
 class TerminalApp:
@@ -180,6 +152,16 @@ class TerminalApp:
                             valid_keystroke = keystroke
 
                         controller.add_keypress(valid_keystroke)
+                    elif isinstance(controller, AutoController):
+                        if player == Player.LEFT:
+                            paddle_position = self.game.left_paddle.position_y
+                        elif player == Player.RIGHT:
+                            paddle_position = self.game.right_paddle.position_y
+                        else:
+                            raise ValueError(f"Unhandled player {player.name}")
+
+                        observations = [Observation(ball.position_y, ball.position_x, ball.velocity_y, paddle_position) for ball in self.game.balls]
+                        controller.add_observation(observations)
 
                     action = controller.get_move(self.game)
                     actions[player] = action
@@ -193,6 +175,9 @@ class TerminalApp:
                 print(f"Final score: {self.game.score}")
             else:
                 print(f"Final scores: Left {self.game.left_lives} : {self.game.right_lives} Right")
+        except KeyboardInterrupt:
+            curses.endwin()
+            self.logger.output_log_messages()
         except Exception:
             curses.endwin()
             self.logger.output_log_messages()
@@ -216,7 +201,8 @@ def main(stdscr: curses.window) -> None:
 
     logger = GameLogger()
     game = Game(logger, single_player=True)
-    controllers: Dict[Player, Controller] = {Player.LEFT: KeyboardController(key_press_up=[KEY_W, KEY_UP_ARROW], key_press_down=[KEY_S, KEY_DOWN_ARROW])}
+    # controllers: Dict[Player, Controller] = {Player.LEFT: KeyboardController(key_press_up=[KEY_W, KEY_UP_ARROW], key_press_down=[KEY_S, KEY_DOWN_ARROW])}
+    controllers: Dict[Player, Controller] = {Player.LEFT: AutoController(logger)}
     terminal_app = TerminalApp(stdscr, game, controllers, logger)
     terminal_app.run()
 

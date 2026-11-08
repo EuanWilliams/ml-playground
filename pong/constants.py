@@ -1,3 +1,5 @@
+import math
+
 import numpy as np
 
 # Game constants
@@ -30,13 +32,16 @@ GRID_SIZE_X = 30
 LEFT_PADDLE_X_VALUE = 1
 RIGHT_PADDLE_X_VALUE = GRID_SIZE_X - 2
 
+# Calculate the starting velocity - tie it to grid size so velocity scales with grid, but convert to a scalar so we can randomise the direction when we start.
 STARTING_Y_VELOCITY = GRID_SIZE_Y / 100
 STARTING_X_VELOCITY = GRID_SIZE_X / 100
+STARTING_VELOCITY_SCALAR = math.hypot(STARTING_X_VELOCITY, STARTING_Y_VELOCITY)
+MAX_STARTING_ANGLE = math.radians(45)
 
 LEVEL_EASY_BALL_Y_ACCELERATION = STARTING_Y_VELOCITY / 6  # ball accelerates this amount per bounce on a paddle
 LEVEL_EASY_BALL_X_ACCELERATION = STARTING_X_VELOCITY / 6
-LEVEL_MEDIUM_HIGH_BALL_Y_ACCELERATION = STARTING_X_VELOCITY / 3
-LEVEL_MEDIUM_HIGH_BALL_X_ACCELERATION = STARTING_Y_VELOCITY / 3
+LEVEL_MEDIUM_HIGH_BALL_Y_ACCELERATION = LEVEL_EASY_BALL_Y_ACCELERATION * 2
+LEVEL_MEDIUM_HIGH_BALL_X_ACCELERATION = LEVEL_EASY_BALL_X_ACCELERATION * 2
 
 # Maps object to unit normal vector, used in the calculation of velocity after a bounce.
 OBJECT_TO_UNIT_NORMAL_VECTOR = {
