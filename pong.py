@@ -325,12 +325,12 @@ class Game:
 
         # Update ball position
         collision_value = self._check_collision()
-        if collision_value in BOUNCING_OBJECTS:
+        if collision_value in self.bouncing_objects:
             self.ball.bounce(OBJECT_TO_UNIT_NORMAL_VECTOR[collision_value])
             if collision_value in [LEFT_PADDLE, RIGHT_PADDLE]:
                 self.ball.accelerate(BALL_Y_ACCELERATION, BALL_X_ACCELERATION)
                 self.paddle_bounces += 1
-        elif collision_value in [DEATH_ZONE_LEFT, DEATH_ZONE_RIGHT]:
+        elif collision_value in self.death_zone_objects:
             self._handle_life_lost(collision_value)
         else:
             self._log("No collision, ticking ball")
@@ -412,6 +412,26 @@ class TerminalApp:
         self.stdscr.addstr(len(self.grid), 0, bottom_line)
         self.stdscr.refresh()
 
+    def _keystroke_to_action(self, keystroke: int) -> PlayerAction:
+        """Converts the keystroke to an action"""
+
+        if keystroke == KEY_W:
+            return PlayerAction.LEFT_PADDLE_UP
+        elif keystroke == KEY_S:
+            return PlayerAction.LEFT_PADDLE_DOWN
+        elif keystroke == KEY_UP_ARROW:
+            if self.single_player:
+                return PlayerAction.LEFT_PADDLE_UP
+            else:
+                return PlayerAction.RIGHT_PADDLE_UP
+        elif keystroke == KEY_DOWN_ARROW:
+            if self.single_player:
+                return PlayerAction.LEFT_PADDLE_DOWN
+            else:
+                return PlayerAction.RIGHT_PADDLE_DOWN
+        else:
+            raise ValueError(f"Unhandled keystroke: {keystroke}")
+
     def run(self) -> None:
         """Runs the game, render status to terminal"""
 
@@ -425,12 +445,17 @@ class TerminalApp:
                 keystroke = self.stdscr.getch()
                 if keystroke != curses.ERR:
                     if keystroke in (KEY_S, KEY_W, KEY_UP_ARROW, KEY_DOWN_ARROW):
-                        action = KEYSTROKE_TO_ACTION[keystroke]
+                        action = self._keystroke_to_action(keystroke)
 
                 self.game.tick(action)
                 self._render()
 
             self._game_over()
+            curses.endwin()
+            if self.single_player:
+                print(f"Final score: {self.game.paddle_bounces}")
+            else:
+                print(f"Final scores: Left {self.game.left_lives} : {self.game.right_lives} Right")
         except Exception:
             curses.endwin()
             self.logger.output_log_messages()
