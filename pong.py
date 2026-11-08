@@ -34,7 +34,9 @@ RIGHT_PADDLE = 6
 BALL = 9
 
 BOUNCING_OBJECTS = [FLOOR, CEILING, LEFT_PADDLE, RIGHT_PADDLE]
+BOUNCING_OBJECTS_SINGLE_PLAYER = BOUNCING_OBJECTS + [DEATH_ZONE_RIGHT]
 DEATH_ZONES = [DEATH_ZONE_LEFT, DEATH_ZONE_RIGHT]
+DEATH_ZONES_SINGLE_PLAYER = [DEATH_ZONE_LEFT]
 
 STARTING_LIVES = 3
 
@@ -220,18 +222,23 @@ class Ball:
 class Game:
     """The game"""
 
-    def __init__(self, logger: GameLogger) -> None:
+    def __init__(self, logger: GameLogger, single_player: bool) -> None:
         self.logger = logger
+        self.single_player = single_player
 
         self.ball = Ball()
         paddle_starting_y = GRID_SIZE_Y // 2
         self.left_paddle = Paddle(Player.LEFT, starting_y=paddle_starting_y)
-        self.right_paddle = Paddle(Player.RIGHT, starting_y=paddle_starting_y)
+        self.right_paddle = Paddle(Player.RIGHT, starting_y=paddle_starting_y) if not self.single_player else None
 
         self.left_lives = STARTING_LIVES
-        self.right_lives = STARTING_LIVES
+        self.right_lives = STARTING_LIVES if not self.single_player else None
         self.last_life_lost_tick: Optional[int] = None  # set to tick_index when a player loses a life for display in TUI
         self.winner: Optional[Player] = None
+        self.paddle_bounces: int = 0
+
+        self.bouncing_objects = BOUNCING_OBJECTS if not self.single_player else BOUNCING_OBJECTS_SINGLE_PLAYER
+        self.death_zone_objects = DEATH_ZONES if not self.single_player else DEATH_ZONES_SINGLE_PLAYER
 
         self.tick_index = 0
         self.log_messages: List[str] = []
@@ -250,9 +257,17 @@ class Game:
         elif player_action == PlayerAction.LEFT_PADDLE_DOWN:
             self.left_paddle.move_paddle(1)
         elif player_action == PlayerAction.RIGHT_PADDLE_UP:
-            self.right_paddle.move_paddle(-1)
+            if self.right_paddle is not None:
+                self.right_paddle.move_paddle(-1)
+            else:
+                assert self.single_player, f"Right paddle is none but single player is false, this should not happen."
+                self._log(f"Ignoring right paddle player action in single player mode.")
         elif player_action == PlayerAction.RIGHT_PADDLE_DOWN:
-            self.right_paddle.move_paddle(1)
+            if self.right_paddle is not None:
+                self.right_paddle.move_paddle(1)
+            else:
+                assert self.single_player, f"Right paddle is none but single player is false, this should not happen."
+                self._log(f"Ignoring right paddle player action in single player mode.")
         else:
             raise ValueError(f"Unhandled player action: {player_action}")
 
@@ -271,7 +286,7 @@ class Game:
             return DEATH_ZONE_RIGHT
         elif self.left_paddle.hits_paddle(next_position_y, next_position_x):
             return LEFT_PADDLE
-        elif self.right_paddle.hits_paddle(next_position_y, next_position_x):
+        elif not self.single_player and self.right_paddle is not None and self.right_paddle.hits_paddle(next_position_y, next_position_x):
             return RIGHT_PADDLE
         else:
             return None
@@ -284,6 +299,7 @@ class Game:
         if death_zone == DEATH_ZONE_LEFT:
             self.left_lives -= 1
         elif death_zone == DEATH_ZONE_RIGHT:
+            assert self.right_lives is not None
             self.right_lives -= 1
         else:
             raise ValueError(f"Invalid object for losing a life: {death_zone}")
@@ -313,6 +329,7 @@ class Game:
             self.ball.bounce(OBJECT_TO_UNIT_NORMAL_VECTOR[collision_value])
             if collision_value in [LEFT_PADDLE, RIGHT_PADDLE]:
                 self.ball.accelerate(BALL_Y_ACCELERATION, BALL_X_ACCELERATION)
+                self.paddle_bounces += 1
         elif collision_value in [DEATH_ZONE_LEFT, DEATH_ZONE_RIGHT]:
             self._handle_life_lost(collision_value)
         else:
@@ -321,6 +338,7 @@ class Game:
 
         self.tick_index += 1
 
+
 class TerminalApp:
     """Terminal app for running pong interactively in the terminal"""
 
@@ -328,22 +346,32 @@ class TerminalApp:
         self.stdscr = stdscr
         self.game = game
         self.logger = logger
+        self.single_player = self.game.single_player
 
         self.grid = self._init_grid()
 
     def _game_over(self) -> None:
         """Splashes a screen to say game over."""
-        winner, loser = ("Left", "Right") if self.game.right_lives == 0 else ("Right", "Left")
-        lines = [
-            "GAME OVER",
-            "",
-            f"{winner} wins.",
-            f"{loser} loses.",
-            "",
-            f"Left {self.game.left_lives} : {self.game.right_lives} Right",
-            "",
-            "Press any key",
-        ]
+        if self.single_player:
+            lines = [
+                "GAME OVER",
+                "",
+                f"Final score: {self.game.paddle_bounces}",
+                "",
+                "Press any key",
+            ]
+        else:
+            winner, loser = ("Left", "Right") if self.game.right_lives == 0 else ("Right", "Left")
+            lines = [
+                "GAME OVER",
+                "",
+                f"{winner} wins.",
+                f"{loser} loses.",
+                "",
+                f"Left {self.game.left_lives} : {self.game.right_lives} Right",
+                "",
+                "Press any key",
+            ]
 
         window = curses.newwin(GRID_SIZE_Y, GRID_SIZE_X, 0, 0)
         window.box()
@@ -366,7 +394,9 @@ class TerminalApp:
 
         # overlay paddles
         self.stdscr.addstr(self.game.left_paddle.position[0], self.game.left_paddle.position[1], self.game.left_paddle.display_character)
-        self.stdscr.addstr(self.game.right_paddle.position[0], self.game.right_paddle.position[1], self.game.right_paddle.display_character)
+        if not self.single_player:
+            assert self.game.right_paddle is not None
+            self.stdscr.addstr(self.game.right_paddle.position[0], self.game.right_paddle.position[1], self.game.right_paddle.display_character)
 
         # overlay ball
         self.stdscr.addstr(self.game.ball.rounded_position[0], self.game.ball.rounded_position[1], self.game.ball.display_character)
@@ -374,8 +404,11 @@ class TerminalApp:
         # overlay bottom line
         if self.game.last_life_lost_tick is not None and self.game.tick_index - self.game.last_life_lost_tick <= 25:
             bottom_line = f"Life lost (×_×)".center(GRID_SIZE_X)
+        elif self.single_player:
+            bottom_line = f"Current score: {self.game.paddle_bounces} | Lives: {self.game.left_lives}".center(GRID_SIZE_X)
         else:
             bottom_line = f"Left {self.game.left_lives} : {self.game.right_lives} Right".center(GRID_SIZE_X)
+
         self.stdscr.addstr(len(self.grid), 0, bottom_line)
         self.stdscr.refresh()
 
@@ -420,7 +453,7 @@ def main(stdscr: curses.window) -> None:
     """Main function"""
 
     logger = GameLogger()
-    game = Game(logger)
+    game = Game(logger, single_player=True)
     terminal_app = TerminalApp(stdscr, game, logger)
     terminal_app.run()
 
