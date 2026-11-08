@@ -10,11 +10,14 @@ from numpy import typing as npt
 
 Grid = npt.NDArray[np.float32]
 
+class Level(IntEnum):
+    EASY = 0
+    MEDIUM = 1
+    HARD = 2
 
 class Player(IntEnum):
     LEFT = 0
     RIGHT = 1
-
 
 class PlayerAction(IntEnum):
     LEFT_PADDLE_UP = 0
@@ -39,6 +42,13 @@ DEATH_ZONES = [DEATH_ZONE_LEFT, DEATH_ZONE_RIGHT]
 DEATH_ZONES_SINGLE_PLAYER = [DEATH_ZONE_LEFT]
 
 STARTING_LIVES = 3
+
+LEVEL_EASY_MAX_BOUNCES = 10
+LEVEL_MEDIUM_MAX_BOUNCES = 20
+
+LEVEL_EASY_SCORE_POINTS = 10  # Points gained per bounce during each level
+LEVEL_MEDIUM_SCORE_POINTS = 20
+LEVEL_HARD_SCORE_POINTS = 50
 
 # TUI Game
 TICK_SLEEP_TIME = 1 / 30
@@ -73,11 +83,13 @@ GRID_SIZE_X = 30
 LEFT_PADDLE_X_VALUE = 1
 RIGHT_PADDLE_X_VALUE = GRID_SIZE_X - 2
 
-STARTING_Y_VELOCITY = 0.1
-STARTING_X_VELOCITY = 0.3
+STARTING_Y_VELOCITY = GRID_SIZE_Y / 100
+STARTING_X_VELOCITY = GRID_SIZE_X / 100
 
-BALL_X_ACCELERATION = 0.025  # ball accelerates this amount per bounce on a paddle
-BALL_Y_ACCELERATION = 0.0625
+LEVEL_EASY_BALL_Y_ACCELERATION = STARTING_Y_VELOCITY / 6  # ball accelerates this amount per bounce on a paddle
+LEVEL_EASY_BALL_X_ACCELERATION = STARTING_X_VELOCITY / 6
+LEVEL_MEDIUM_HIGH_BALL_Y_ACCELERATION = STARTING_X_VELOCITY / 3
+LEVEL_MEDIUM_HIGH_BALL_X_ACCELERATION = STARTING_Y_VELOCITY / 3
 
 # Maps object to unit normal vector, used in the calculation of velocity after a bounce.
 OBJECT_TO_UNIT_NORMAL_VECTOR = {
@@ -167,13 +179,13 @@ class Ball:
 
     @property
     def rounded_position(self) -> Tuple[int, int]:
-        """Returns the balls position"""
-        return round(self.position_y), round(self.position_x)
+        """Returns the balls position, floored to the current position."""
+        return math.floor(self.position_y), math.floor(self.position_x)
 
     @property
     def next_position(self) -> Tuple[int, int]:
-        """Returns the ball's next position, without actually moving the ball, snapped to an integer."""
-        return round(self.position_y + self.velocity_y), round(self.position_x + self.velocity_x)
+        """Returns the ball's next position, without actually moving the ball, floored to an integer."""
+        return math.floor(self.position_y + self.velocity_y), math.floor(self.position_x + self.velocity_x)
 
     def tick(self) -> None:
         """Increments the balls position by one tick"""
@@ -226,7 +238,9 @@ class Game:
         self.logger = logger
         self.single_player = single_player
 
-        self.ball = Ball()
+        self.level = Level.EASY
+
+        self.balls = [Ball()]  # start with a single ball.
         paddle_starting_y = GRID_SIZE_Y // 2
         self.left_paddle = Paddle(Player.LEFT, starting_y=paddle_starting_y)
         self.right_paddle = Paddle(Player.RIGHT, starting_y=paddle_starting_y) if not self.single_player else None
@@ -236,7 +250,10 @@ class Game:
         self.last_life_lost_tick: Optional[int] = None  # set to tick_index when a player loses a life for display in TUI
         self.winner: Optional[Player] = None
         self.paddle_bounces: int = 0
+        self.score = 0
 
+        self.acceleration_y = LEVEL_EASY_BALL_Y_ACCELERATION
+        self.acceleration_x = LEVEL_EASY_BALL_X_ACCELERATION
         self.bouncing_objects = BOUNCING_OBJECTS if not self.single_player else BOUNCING_OBJECTS_SINGLE_PLAYER
         self.death_zone_objects = DEATH_ZONES if not self.single_player else DEATH_ZONES_SINGLE_PLAYER
 
@@ -271,10 +288,10 @@ class Game:
         else:
             raise ValueError(f"Unhandled player action: {player_action}")
 
-    def _check_collision(self) -> Optional[int]:
+    def _check_collision(self, ball: Ball) -> Optional[int]:
         """Checks if the next ball position will collide with an object"""
 
-        next_position_y, next_position_x = self.ball.next_position
+        next_position_y, next_position_x = ball.next_position
 
         if next_position_y <= 0:
             return CEILING
@@ -291,7 +308,7 @@ class Game:
         else:
             return None
 
-    def _handle_life_lost(self, death_zone: int) -> None:
+    def _handle_life_lost(self, ball: Ball, death_zone: int) -> None:
         """Handles a player losing a life"""
 
         self._log(f"Life lost to death zone {death_zone}")
@@ -309,10 +326,48 @@ class Game:
         elif self.right_lives == 0:
             self.winner = Player.LEFT
         else:
-            self.ball.reset_to_start()
+            ball.reset_to_start()
 
         self.last_life_lost_tick = self.tick_index
         self._log(f"Life lost to death zone, new scores: Left {self.left_lives} : {self.right_lives} Right")
+
+    def _handle_ball_bounce(self, ball: Ball) -> None:
+        """Handles a ball bouncing against an object"""
+
+        ball.accelerate(self.acceleration_y, self.acceleration_x)
+
+        self.paddle_bounces += 1
+
+        if self.level == Level.EASY:
+            self.score += LEVEL_EASY_SCORE_POINTS
+        elif self.level == Level.MEDIUM:
+            self.score += LEVEL_MEDIUM_SCORE_POINTS
+        elif self.level == Level.HARD:
+            self.score += LEVEL_HARD_SCORE_POINTS
+        else:
+            raise ValueError(f"Unhandled level {self.level.name}")
+
+    def _update_level(self) -> None:
+        """Checks if its time to update the level."""
+
+        if self.paddle_bounces <= LEVEL_EASY_MAX_BOUNCES:
+            if self.level != Level.EASY:
+                raise ValueError(f"Unxpected level with paddle bounces {self.paddle_bounces}, level: {self.level}")
+        elif self.paddle_bounces <= LEVEL_MEDIUM_MAX_BOUNCES:
+            if self.level == Level.EASY:
+                # in level easy moving to level medium, increase speed.
+                self.level = Level.MEDIUM
+                self.acceleration_y = LEVEL_MEDIUM_HIGH_BALL_Y_ACCELERATION
+                self.acceleration_x = LEVEL_MEDIUM_HIGH_BALL_X_ACCELERATION
+            elif self.level != Level.MEDIUM:
+                raise ValueError(f"Unexpected level with paddle bounces {self.paddle_bounces}, level: {self.level}")
+        else:
+            if self.level == Level.MEDIUM:
+                # in level medium moving to hard, add another ball.
+                self.level = Level.HARD
+                self.balls.append(Ball())
+            elif self.level != Level.HARD:
+                raise ValueError(f"Unexpected level with paddle bounces {self.paddle_bounces}, level: {self.level}")
 
     def tick(self, player_action: Optional[PlayerAction]) -> None:
         """Ticks the game's state by one increment"""
@@ -324,18 +379,20 @@ class Game:
             self._register_player_action(player_action)
 
         # Update ball position
-        collision_value = self._check_collision()
-        if collision_value in self.bouncing_objects:
-            self.ball.bounce(OBJECT_TO_UNIT_NORMAL_VECTOR[collision_value])
-            if collision_value in [LEFT_PADDLE, RIGHT_PADDLE]:
-                self.ball.accelerate(BALL_Y_ACCELERATION, BALL_X_ACCELERATION)
-                self.paddle_bounces += 1
-        elif collision_value in self.death_zone_objects:
-            self._handle_life_lost(collision_value)
-        else:
-            self._log("No collision, ticking ball")
-            self.ball.tick()
+        for ball in self.balls:
+            collision_value = self._check_collision(ball)
+            if collision_value in self.bouncing_objects:
+                ball.bounce(OBJECT_TO_UNIT_NORMAL_VECTOR[collision_value])
+                if collision_value in [LEFT_PADDLE, RIGHT_PADDLE]:
+                    self._handle_ball_bounce(ball)
+            elif collision_value in self.death_zone_objects:
+                self._handle_life_lost(ball, collision_value)
+            else:
+                self._log("No collision, ticking ball")
+                ball.tick()
 
+        # update level
+        self._update_level()
         self.tick_index += 1
 
 
@@ -356,7 +413,7 @@ class TerminalApp:
             lines = [
                 "GAME OVER",
                 "",
-                f"Final score: {self.game.paddle_bounces}",
+                f"Final score: {self.game.score}",
                 "",
                 "Press any key",
             ]
@@ -389,7 +446,7 @@ class TerminalApp:
         """Renders the current status to terminal"""
 
         # overlay grid
-        frame = "\n".join("".join(DISPLAY_CHARACTERS[cell] for cell in row) for row in self.grid)
+        frame = "\n".join("".join(DISPLAY_CHARACTERS[cell] for cell in row if cell != BALL) for row in self.grid)
         self.stdscr.addstr(0, 0, frame)
 
         # overlay paddles
@@ -399,13 +456,14 @@ class TerminalApp:
             self.stdscr.addstr(self.game.right_paddle.position[0], self.game.right_paddle.position[1], self.game.right_paddle.display_character)
 
         # overlay ball
-        self.stdscr.addstr(self.game.ball.rounded_position[0], self.game.ball.rounded_position[1], self.game.ball.display_character)
+        for ball in self.game.balls:
+            self.stdscr.addstr(ball.rounded_position[0], ball.rounded_position[1], ball.display_character)
 
         # overlay bottom line
         if self.game.last_life_lost_tick is not None and self.game.tick_index - self.game.last_life_lost_tick <= 25:
             bottom_line = f"Life lost (×_×)".center(GRID_SIZE_X)
         elif self.single_player:
-            bottom_line = f"Current score: {self.game.paddle_bounces} | Lives: {self.game.left_lives}".center(GRID_SIZE_X)
+            bottom_line = f"Current score: {self.game.score} | Lives: {self.game.left_lives}".center(GRID_SIZE_X)
         else:
             bottom_line = f"Left {self.game.left_lives} : {self.game.right_lives} Right".center(GRID_SIZE_X)
 
@@ -453,7 +511,7 @@ class TerminalApp:
             self._game_over()
             curses.endwin()
             if self.single_player:
-                print(f"Final score: {self.game.paddle_bounces}")
+                print(f"Final score: {self.game.score}")
             else:
                 print(f"Final scores: Left {self.game.left_lives} : {self.game.right_lives} Right")
         except Exception:
