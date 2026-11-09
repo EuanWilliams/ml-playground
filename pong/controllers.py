@@ -1,4 +1,5 @@
 """Controllers are used for controlling paddles in pong"""
+
 import math
 from dataclasses import dataclass
 from typing import List, Optional, Protocol
@@ -70,11 +71,14 @@ class AutoController(Controller):
             delta_to_ball_next_pos = target_observation.ball_position_y - target_observation.paddle_position_y
 
         if delta_to_ball_next_pos > 0.1:
-            self.logger.add_log_message(f"Ball position is ball_position is {target_observation.ball_position_y}, ball_velocity is {target_observation.ball_velocity_y}. Paddle position is {target_observation.paddle_position_y}, moving paddle DOWN")
+            self.logger.add_log_message(
+                f"Ball position is ball_position is {target_observation.ball_position_y}, ball_velocity is {target_observation.ball_velocity_y}. Paddle position is {target_observation.paddle_position_y}, moving paddle DOWN"
+            )
             return PaddleMove.DOWN
         elif delta_to_ball_next_pos < 0.1:
-            self.logger.add_log_message(f"Ball position is ball_position is {target_observation.ball_position_y}, ball_velocity is {target_observation.ball_velocity_y}. Paddle position is {target_observation.paddle_position_y}, moving paddle UP")
+            self.logger.add_log_message(
+                f"Ball position is ball_position is {target_observation.ball_position_y}, ball_velocity is {target_observation.ball_velocity_y}. Paddle position is {target_observation.paddle_position_y}, moving paddle UP"
+            )
             return PaddleMove.UP
 
         return PaddleMove.STAY
-

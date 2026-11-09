@@ -1,4 +1,5 @@
 """Used for training the RL model"""
+
 from termios import VLNEXT
 from typing import Any, Dict, Tuple, Optional, SupportsFloat, List
 
@@ -8,6 +9,7 @@ from gymnasium.core import ObsType
 from pong.game import Game, GameLogger, Player, PaddleMove, TickEvent, Level
 
 TICK_TRUNCATE_VALUE = 100  # Stop if the game gets this far
+
 
 class TrainingGame(Game, gym.Env):
     def __init__(self, logger: GameLogger, grid_y: int, grid_x: int) -> None:
@@ -40,9 +42,7 @@ class TrainingGame(Game, gym.Env):
 
     def _get_info(self) -> Dict[str, Any]:
         """Returns nothing for the time being but can be used to return debugging information"""
-        return {
-            "test": "testing"
-        }
+        return {"test": "testing"}
 
     def reset(self, *, seed: Optional[int] = None, options: Optional[Dict[str, Any]] = None) -> Tuple[ObsType, Dict[str, Any]]:
         """Resets the environment"""
@@ -78,7 +78,6 @@ class TrainingGame(Game, gym.Env):
 
         return player_scores
 
-
     def step(self, action) -> Tuple[ObsType, SupportsFloat, bool, bool, Dict[str, Any]]:
         """Steps the game forwards one"""
 
@@ -94,10 +93,3 @@ class TrainingGame(Game, gym.Env):
         observation = self._get_obs()
         info = self._get_info()
         return observation, left_player_reward, terminated, truncated, info
-
-
-
-
-
-
-
