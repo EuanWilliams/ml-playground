@@ -3,7 +3,7 @@ import math
 from dataclasses import dataclass
 from typing import List, Optional, Protocol
 
-from pong.game import Game, PaddleMove, GameLogger
+from pong.game import PaddleMove, GameLogger
 
 
 class Controller(Protocol):
