@@ -2,13 +2,13 @@
 
 import curses
 import time
-from typing import Dict
+from typing import Dict, Any, Optional
 
 import numpy as np
 import numpy.typing as npt
 
 from pong.controllers import KeyboardController, Controller, AutoController, Observation
-from pong.game import Game, GameLogger, PlayerAction, Player
+from pong.game import Game, GameLogger, PlayerAction, Player, PaddleMove
 from pong.constants import EMPTY_SPACE, DEATH_ZONE_LEFT, DEATH_ZONE_RIGHT, FLOOR, CEILING, LEFT_PADDLE, RIGHT_PADDLE, BALL, GRID_SIZE_Y, GRID_SIZE_X
 
 Grid = npt.NDArray[np.float32]
@@ -143,28 +143,7 @@ class TerminalApp:
             while self.game.winner is None:
                 time.sleep(TICK_SLEEP_TIME)
 
-                keystroke = self.stdscr.getch()
-                actions = {}
-                for player, controller in self.controllers.items():
-                    if isinstance(controller, KeyboardController):
-                        valid_keystroke = None
-                        if keystroke in (KEY_S, KEY_W, KEY_UP_ARROW, KEY_DOWN_ARROW):
-                            valid_keystroke = keystroke
-
-                        controller.add_keypress(valid_keystroke)
-                    elif isinstance(controller, AutoController):
-                        if player == Player.LEFT:
-                            paddle_position = self.game.left_paddle.position_y
-                        elif player == Player.RIGHT:
-                            paddle_position = self.game.right_paddle.position_y
-                        else:
-                            raise ValueError(f"Unhandled player {player.name}")
-
-                        observations = [Observation(ball.position_y, ball.position_x, ball.velocity_y, paddle_position) for ball in self.game.balls]
-                        controller.add_observation(observations)
-
-                    action = controller.get_move(self.game)
-                    actions[player] = action
+                actions = self._retrieve_controller_actions()
 
                 self.game.tick(actions)
                 self._render()
@@ -182,6 +161,37 @@ class TerminalApp:
             curses.endwin()
             self.logger.output_log_messages()
             raise
+
+    def _retrieve_controller_actions(self) -> Dict[Player, PaddleMove]:
+        """Retrieves the controller's actions"""
+
+        keystroke = self.stdscr.getch()
+
+        actions = {}
+        for player, controller in self.controllers.items():
+            if isinstance(controller, KeyboardController):
+                valid_keystroke = None
+                if keystroke in (KEY_S, KEY_W, KEY_UP_ARROW, KEY_DOWN_ARROW):
+                    valid_keystroke = keystroke
+
+                controller.add_keypress(valid_keystroke)
+            elif isinstance(controller, AutoController):
+                if player == Player.LEFT:
+                    paddle_position = self.game.left_paddle.position_y
+                elif player == Player.RIGHT:
+                    paddle_position = self.game.right_paddle.position_y
+                else:
+                    raise ValueError(f"Unhandled player {player.name}")
+
+                observations = [Observation(ball.position_y, ball.position_x, ball.velocity_y, paddle_position) for ball in self.game.balls]
+                controller.add_observation(observations)
+            else:
+                raise ValueError(f"Unhandled controller type: {type(controller)}")
+
+            action = controller.get_move()
+            actions[player] = action
+
+        return actions
 
     @staticmethod
     def _init_grid() -> Grid:

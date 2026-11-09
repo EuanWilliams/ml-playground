@@ -7,7 +7,7 @@ from pong.game import Game, PaddleMove, GameLogger
 
 
 class Controller(Protocol):
-    def get_move(self, game: Game) -> PaddleMove:
+    def get_move(self) -> PaddleMove:
         pass
 
 
@@ -32,7 +32,7 @@ class KeyboardController(Controller):
 
         self.last_key_press = keypress
 
-    def get_move(self, game: Game) -> PaddleMove:
+    def get_move(self) -> PaddleMove:
         """Returns the next move."""
 
         if self.last_key_press in self.key_press_up:
@@ -55,7 +55,7 @@ class AutoController(Controller):
 
         self.last_observations = observation
 
-    def get_move(self, game: Game) -> PaddleMove:
+    def get_move(self) -> PaddleMove:
         """Selects the next move based on the last observed observation"""
 
         assert self.last_observations is not None
@@ -64,7 +64,7 @@ class AutoController(Controller):
 
         predicted_next_position_y = target_observation.ball_position_y + target_observation.ball_velocity_y
 
-        if math.ceil(predicted_next_position_y) != target_observation.ball_position_y:
+        if math.floor(predicted_next_position_y) != target_observation.ball_position_y:
             delta_to_ball_next_pos = predicted_next_position_y - target_observation.paddle_position_y
         else:
             delta_to_ball_next_pos = target_observation.ball_position_y - target_observation.paddle_position_y
