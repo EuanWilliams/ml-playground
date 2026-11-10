@@ -1,44 +1,84 @@
 """Used for training the RL model"""
-
-from termios import VLNEXT
+import math
 from typing import Any, Dict, Tuple, Optional, SupportsFloat, List
 
 import gymnasium as gym
+import numpy as np
+import numpy.typing as npt
 from gymnasium.core import ObsType
 
-from pong.game import Game, GameLogger, Player, PaddleMove, TickEvent, Level
+from pong.ball import Ball
+from pong.constants import GRID_SIZE_Y, GRID_SIZE_X, MAX_BALLS, MAX_BALL_VELOCITY
+from pong.game import Game, Player, PaddleMove, TickEvent, Level
+from pong.paddle import Paddle
 
-TICK_TRUNCATE_VALUE = 100  # Stop if the game gets this far
+
+class TrainingGame(gym.Env):
+    def __init__(self) -> None:
+        super().__init__()
+
+        self.grid_size_y = GRID_SIZE_Y
+        self.grid_size_x = GRID_SIZE_X
+
+        shape = 2 + (MAX_BALLS * 5)
+        self.observation_space = gym.spaces.Box(low=-1.0, high=1.0, shape=(shape,), dtype=np.float32)
+        self.action_space = gym.spaces.Discrete(3, start=-1, dtype=np.int8)
+
+        self.game = Game(single_player=True, logger=None)  # Start with a fresh game
+
+    def _time_to_reach_paddle(self, ball: Ball) -> float:
+        """Estimated ticks until the ball reaches the left paddle's x position. Uses time = distance / speed to estimate the number of ticks until
+        hit."""
+
+        paddle_x = self.game.left_paddle.position_x
+        right_wall_x = self.grid_size_x - 1
+        velocity_x = ball.velocity_x
+
+        if velocity_x < 0:
+            if ball.position_x < paddle_x:
+                return math.inf  # already behind the paddle, cannot be saved so least relevant
+            return (ball.position_x - paddle_x) / abs(velocity_x)
+        if velocity_x > 0:
+            return ((right_wall_x - ball.position_x) + (right_wall_x - paddle_x)) / abs(velocity_x)
+        return math.inf  # no horizontal motion, never arrives
 
 
-class TrainingGame(Game, gym.Env):
-    def __init__(self, logger: GameLogger, grid_y: int, grid_x: int) -> None:
-        super().__init__(logger, single_player=True)
+    def _get_obs(self) -> npt.NDArray[np.float32]:
+        """Returns an observation"""
 
-        self.grid_size_y = grid_y
-        self.grid_size_x = grid_x
+        balls_by_proximity = sorted(self.game.balls, key=lambda ball: self._time_to_reach_paddle(ball))
 
-        self.observation_space = gym.spaces.Dict(
-            {
-                "ball_position_y": gym.spaces.Box(low=1, high=self.grid_size_y - 1, dtype=float),
-                "ball_position_x": gym.spaces.Box(low=1, high=self.grid_size_x - 1, dtype=float),
-                "ball_velocity_y": gym.spaces.Box(low=0, dtype=float),
-                "paddle_position_y": gym.spaces.Box(low=1, high=self.grid_size_y - 1, dtype=int),
-            }
+        # The observation shape is [{paddle observation}, {closest_ball_observation}, {next_closest}, ....]
+        observation_list = []
+
+        # Paddle observation is: [position_y, position_x]
+        observation_list.extend(
+            [
+                self.game.left_paddle.position_y / self.grid_size_y,
+                self.game.left_paddle.position_x / self.grid_size_x
+            ]
         )
 
-        self.action_space = gym.spaces.Discrete(3, start=-1, dtype=int)
+        # Each balls observation is in format: [present, ball_position_y, ball_position_x, ball_velocity_y, ball_velocity_x]
+        for _ in range(MAX_BALLS):
+            if len(balls_by_proximity):
+                ball = balls_by_proximity.pop(0)  # take the first one off the list, this is closest to the paddle.
+                # Normalise these values here. They should always be between -1 and 1.
+                present = 1
+                ball_position_y = ball.position_y / self.grid_size_y
+                ball_position_x = ball.position_x / self.grid_size_x
+                ball_velocity_y = ball.velocity_y / MAX_BALL_VELOCITY
+                ball_velocity_x = ball.velocity_x / MAX_BALL_VELOCITY
+            else:
+                present = 0
+                ball_position_y = 0
+                ball_position_x = 0
+                ball_velocity_y = 0
+                ball_velocity_x = 0
 
-    def _get_obs(self):
-        """Returns an observation"""
-        # TODO - typing
+            observation_list.extend([present, ball_position_y, ball_position_x, ball_velocity_y, ball_velocity_x])
 
-        return {
-            "ball_position_y": self.balls[0].position_y,
-            "ball_position_x": self.balls[0].position_x,
-            "ball_velocity_y": self.balls[0].velocity_y,
-            "paddle_position_y": self.left_paddle.position_y,
-        }
+        return np.array(observation_list, dtype=np.float32)
 
     def _get_info(self) -> Dict[str, Any]:
         """Returns nothing for the time being but can be used to return debugging information"""
@@ -48,6 +88,7 @@ class TrainingGame(Game, gym.Env):
         """Resets the environment"""
 
         super().reset(seed=seed)
+        self.game = Game(single_player=True, logger=None)  # reset the game state
 
         observation = self._get_obs()
         info = self._get_info()
@@ -63,16 +104,14 @@ class TrainingGame(Game, gym.Env):
                 if event == TickEvent.LIFE_LOST:
                     score -= 10
                 elif event == TickEvent.PADDLE_BOUNCE:
-                    if self.level == Level.EASY:
+                    if self.game.level == Level.EASY:
                         score += 1
-                    elif self.level == Level.MEDIUM:
+                    elif self.game.level == Level.MEDIUM:
                         score += 3
-                    elif self.level == Level.HARD:
+                    elif self.game.level == Level.HARD:
                         score += 6
                     else:
-                        raise ValueError(f"Unhandled level {self.level}")
-                else:
-                    raise ValueError(f"Unhandled tick event: {event}")
+                        raise ValueError(f"Unhandled level {self.game.level}")
 
             player_scores[player] = score
 
@@ -81,13 +120,13 @@ class TrainingGame(Game, gym.Env):
     def step(self, action) -> Tuple[ObsType, SupportsFloat, bool, bool, Dict[str, Any]]:
         """Steps the game forwards one"""
 
-        tick_result = self.tick({Player.LEFT: PaddleMove(action)})
+        tick_result = self.game.tick({Player.LEFT: PaddleMove(action)})
         player_rewards = self._calculate_reward(tick_result)
 
         # TODO: only supports a single player reward
         left_player_reward = player_rewards[Player.LEFT]
 
-        terminated = self.left_lives == 0
+        terminated = self.game.left_lives == 0
         truncated = False
 
         observation = self._get_obs()

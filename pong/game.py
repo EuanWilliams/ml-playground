@@ -1,6 +1,5 @@
 from enum import IntEnum
-from pydoc import plainpager
-from typing import List, Optional, Dict, Tuple
+from typing import List, Optional, Dict
 
 from pong.ball import Ball
 from pong.paddle import Paddle
@@ -29,7 +28,7 @@ from pong.constants import (
     LEVEL_MEDIUM_HIGH_BALL_X_ACCELERATION,
     OBJECT_TO_UNIT_NORMAL_VECTOR,
     LEFT_PADDLE_X_VALUE,
-    RIGHT_PADDLE_X_VALUE,
+    RIGHT_PADDLE_X_VALUE, MAX_BALLS,
 )
 
 
@@ -60,9 +59,8 @@ class PlayerAction(IntEnum):
 class TickEvent(IntEnum):
     """Events that can occur during a tick."""
 
-    NO_ACTION = 0
-    PADDLE_BOUNCE = 1
-    LIFE_LOST = 2
+    PADDLE_BOUNCE = 0
+    LIFE_LOST = 1
 
 
 class GameLogger:
@@ -73,7 +71,6 @@ class GameLogger:
 
     def add_log_message(self, message: str) -> None:
         """Add a log message to list"""
-
         self.log_messages.append(message)
 
     def output_log_messages(self) -> None:
@@ -86,7 +83,7 @@ class GameLogger:
 class Game:
     """The game"""
 
-    def __init__(self, logger: GameLogger, single_player: bool) -> None:
+    def __init__(self, single_player: bool, logger: Optional[GameLogger]) -> None:
         self.logger = logger
         self.single_player = single_player
 
@@ -115,10 +112,13 @@ class Game:
         self.death_zone_objects = DEATH_ZONES if not self.single_player else DEATH_ZONES_SINGLE_PLAYER
 
         self.tick_index = 0
+        self.tick_events: Dict[Player, List[TickEvent]] = {}  # reset every tick.
 
     def _log(self, message: str) -> None:
         """Appends log message"""
-        self.logger.add_log_message(f"{self.tick_index}: {message}")
+
+        if self.logger is not None:
+            self.logger.add_log_message(f"{self.tick_index}: {message}")
 
     def _register_player_move(self, paddle_move: PaddleMove, player: Player) -> None:
         """Responds to a player move by updating the paddle state"""
@@ -148,28 +148,33 @@ class Game:
         elif next_position_y >= GRID_SIZE_Y - 1:
             return FLOOR
         elif next_position_x <= 0:
+            # Tick events for deaths are handled in the life lost function.
             return DEATH_ZONE_LEFT
         elif next_position_x >= GRID_SIZE_X - 1:
+            # Tick events for deaths are handled in the life lost function.
             return DEATH_ZONE_RIGHT
         elif self.left_paddle.hits_paddle(next_position_y, next_position_x):
+            self.tick_events.setdefault(Player.LEFT, []).append(TickEvent.PADDLE_BOUNCE)
             return LEFT_PADDLE
         elif not self.single_player and self.right_paddle is not None and self.right_paddle.hits_paddle(next_position_y, next_position_x):
+            self.tick_events.setdefault(Player.RIGHT, []).append(TickEvent.PADDLE_BOUNCE)
             return RIGHT_PADDLE
         else:
             return None
 
-    def _handle_life_lost(self, ball: Ball, death_zone: int) -> Player:
+    def _handle_life_lost(self, ball: Ball, death_zone: int) -> None:
         """Handles a player losing a life"""
 
         self._log(f"Life lost to death zone {death_zone}")
 
         if death_zone == DEATH_ZONE_LEFT:
             self.left_lives -= 1
-            player = Player.LEFT
+            self.tick_events.setdefault(Player.LEFT, []).append(TickEvent.LIFE_LOST)
         elif death_zone == DEATH_ZONE_RIGHT:
             assert self.right_lives is not None
+            assert not self.single_player
             self.right_lives -= 1
-            player = Player.RIGHT
+            self.tick_events.setdefault(Player.RIGHT, []).append(TickEvent.LIFE_LOST)
         else:
             raise ValueError(f"Invalid object for losing a life: {death_zone}")
 
@@ -182,8 +187,6 @@ class Game:
 
         self.last_life_lost_tick = self.tick_index
         self._log(f"Life lost to death zone, new scores: Left {self.left_lives} : {self.right_lives} Right")
-
-        return player
 
     def _handle_ball_bounce(self, ball: Ball) -> None:
         """Handles a ball bouncing against an object"""
@@ -204,10 +207,10 @@ class Game:
     def _update_level(self) -> None:
         """Checks if its time to update the level."""
 
-        if self.paddle_bounces <= LEVEL_EASY_MAX_BOUNCES:
+        if self.paddle_bounces < LEVEL_EASY_MAX_BOUNCES:
             if self.level != Level.EASY:
                 raise ValueError(f"Unxpected level with paddle bounces {self.paddle_bounces}, level: {self.level}")
-        elif self.paddle_bounces <= LEVEL_MEDIUM_MAX_BOUNCES:
+        elif self.paddle_bounces < LEVEL_MEDIUM_MAX_BOUNCES:
             if self.level == Level.EASY:
                 # in level easy moving to level medium, increase speed.
                 self.level = Level.MEDIUM
@@ -220,15 +223,18 @@ class Game:
                 # in level medium moving to hard, add another ball.
                 self.level = Level.HARD
                 self.balls.append(Ball())
+            elif self.level == Level.HARD:
+                # While in level HARD, keep adding new balls until we get to max balls.
+                if self.paddle_bounces % 10 and len(self.balls) < MAX_BALLS:
+                    self.balls.append(Ball())
             elif self.level != Level.HARD:
                 raise ValueError(f"Unexpected level with paddle bounces {self.paddle_bounces}, level: {self.level}")
 
-    def tick(self, actions: Dict[Player, PaddleMove]) -> None:
+    def tick(self, actions: Dict[Player, PaddleMove]) -> Dict[Player, List[TickEvent]]:
         """Ticks the game's state by one increment"""
 
         self._log("Starting tick")
-
-        tick_events: Dict[Player, List[TickEvent]] = {}
+        self.tick_events.clear()  # must be reset every tick.
 
         # Handle the player's action
         if (left_player_action := actions.get(Player.LEFT)) is not None:
@@ -241,22 +247,17 @@ class Game:
             collision_value = self._check_collision(ball)
             if collision_value in self.bouncing_objects:
                 ball.bounce(OBJECT_TO_UNIT_NORMAL_VECTOR[collision_value])
-                if collision_value == LEFT_PADDLE:
+                if collision_value in [LEFT_PADDLE, RIGHT_PADDLE]:
                     self._handle_ball_bounce(ball)
-                    tick_events.setdefault(Player.LEFT, []).append(TickEvent.PADDLE_BOUNCE)
-                elif collision_value == RIGHT_PADDLE:
-                    self._handle_ball_bounce(ball)
-                    tick_events.setdefault(Player.RIGHT, []).append(TickEvent.PADDLE_BOUNCE)
             elif collision_value in self.death_zone_objects:
-                player = self._handle_life_lost(ball, collision_value)
-                tick_events.setdefault(player, []).append(TickEvent.LIFE_LOST)
+                assert collision_value is not None
+                self._handle_life_lost(ball, collision_value)
             else:
                 self._log("No collision, ticking ball")
                 ball.tick()
-                tick_events.setdefault(Player.LEFT, []).append(TickEvent.NO_ACTION)
-                if not self.single_player:
-                    tick_events.setdefault(Player.RIGHT, []).append(TickEvent.NO_ACTION)
 
         # update level
         self._update_level()
         self.tick_index += 1
+
+        return self.tick_events

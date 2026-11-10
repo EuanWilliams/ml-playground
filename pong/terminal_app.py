@@ -210,7 +210,7 @@ def main(stdscr: curses.window) -> None:
     """Main function"""
 
     logger = GameLogger()
-    game = Game(logger, single_player=True)
+    game = Game(single_player=True, logger=logger)
     # controllers: Dict[Player, Controller] = {Player.LEFT: KeyboardController(key_press_up=[KEY_W, KEY_UP_ARROW], key_press_down=[KEY_S, KEY_DOWN_ARROW])}
     controllers: Dict[Player, Controller] = {Player.LEFT: AutoController(logger)}
     terminal_app = TerminalApp(stdscr, game, controllers, logger)

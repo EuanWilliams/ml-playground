@@ -7,7 +7,7 @@ from typing import Tuple
 import numpy as np
 from numpy import typing as npt
 
-from pong.constants import GRID_SIZE_Y, GRID_SIZE_X, MAX_STARTING_ANGLE, STARTING_VELOCITY_SCALAR
+from pong.constants import GRID_SIZE_Y, GRID_SIZE_X, MAX_STARTING_ANGLE, STARTING_VELOCITY_SCALAR, MAX_BALL_VELOCITY
 
 
 class Ball:
@@ -61,8 +61,11 @@ class Ball:
     def accelerate(self, delta_y: float, delta_x: float) -> None:
         """Accelerates the ball a provided amount"""
 
-        self.velocity_y += math.copysign(delta_y, self.velocity_y)
-        self.velocity_x += math.copysign(delta_x, self.velocity_x)
+        velocity_y = self.velocity_y + math.copysign(delta_y, self.velocity_y)
+        velocity_x = self.velocity_x + math.copysign(delta_x, self.velocity_x)
+
+        self.velocity_y = min(max(-MAX_BALL_VELOCITY, velocity_y), MAX_BALL_VELOCITY)
+        self.velocity_x = min(max(-MAX_BALL_VELOCITY, velocity_x), MAX_BALL_VELOCITY)
 
     def set_position(self, position: Tuple[int, int]) -> None:
         """Sets the balls position"""
