@@ -8,7 +8,7 @@ import numpy as np
 
 from pong.constants import GRID_SIZE_Y, GRID_SIZE_X, MAX_BALLS, MAX_PADDLE_BOUNCES
 from pong.game import Game, Player, PaddleMove, TickEvent, Level
-from pong.model_common import ModelObservationT, ActionT, get_observation
+from pong.model_common import ModelObservationT, ModelActionT, get_observation
 
 
 class PongTrainingEnvironment(gym.Env):
@@ -61,7 +61,7 @@ class PongTrainingEnvironment(gym.Env):
 
         return player_scores
 
-    def step(self, action: ActionT) -> Tuple[ModelObservationT, SupportsFloat, bool, bool, Dict[str, Any]]:
+    def step(self, action: ModelActionT) -> Tuple[ModelObservationT, SupportsFloat, bool, bool, Dict[str, Any]]:
         """Steps the game forwards one"""
 
         converted_action = PaddleMove(action - 1)  # action space starts at 0, but our PaddleMove IntEnum starts at -1, so need to shift -1.
@@ -77,7 +77,7 @@ class PongTrainingEnvironment(gym.Env):
 
         truncated = self.game.paddle_bounces >= MAX_PADDLE_BOUNCES
 
-        observation = self._get_obs()
+        observation = get_observation(self.game)
         info = self._get_info()
         return observation, left_player_reward, terminated, truncated, info
 

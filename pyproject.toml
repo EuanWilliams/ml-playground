@@ -10,4 +10,5 @@ dependencies = [
     "mypy>=2.4.1",
     "numpy>=2.5.4",
     "stable-baselines3[extra]>=2.9.2",
+    "tensorboard>=2.21.0",
 ]

@@ -1,5 +1,7 @@
 .idea
 .DS_Store
+pong/tensorboard_logs
+tensorboard_logs
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

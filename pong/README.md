@@ -20,4 +20,6 @@ There are three different competitors:
 - Each competitor gets 5 single player games
 - The average of all 5 games is taken as the score.
 
+## Results
+
 
