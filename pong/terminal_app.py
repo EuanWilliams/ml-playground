@@ -1,5 +1,5 @@
 """Interface for playing pong via the terminal"""
-
+import argparse
 import curses
 import time
 from typing import Dict
@@ -7,13 +7,19 @@ from typing import Dict
 import numpy as np
 import numpy.typing as npt
 
-from pong.controllers import KeyboardController, Controller, AutoController, Observation
+from pong.controllers import KeyboardController, Controller, AutoController, Observation, ModelController
 from pong.game import Game, GameLogger, PlayerAction, Player, PaddleMove
 from pong.constants import EMPTY_SPACE, DEATH_ZONE_LEFT, DEATH_ZONE_RIGHT, FLOOR, CEILING, LEFT_PADDLE, RIGHT_PADDLE, BALL, GRID_SIZE_Y, GRID_SIZE_X
+from pong.model_common import get_observation
 
 Grid = npt.NDArray[np.float32]
 
 # TUI Game
+MODE_MANUAL = "manual"
+MODE_AUTO = "auto"
+MODE_MODEL = "model"
+
+
 TICK_SLEEP_TIME = 1 / 30
 
 DISPLAY_CHARACTERS = {
@@ -186,6 +192,9 @@ class TerminalApp:
 
                 observations = [Observation(ball.position_y, ball.position_x, ball.velocity_y, paddle_position) for ball in self.game.balls]
                 controller.add_observation(observations)
+            elif isinstance(controller, ModelController):
+                observation = get_observation(self.game)
+                controller.add_observation(observation)
             else:
                 raise ValueError(f"Unhandled controller type: {type(controller)}")
 
@@ -207,17 +216,32 @@ class TerminalApp:
         return grid
 
 
-def main(stdscr: curses.window) -> None:
+def main(stdscr: curses.window, opt: argparse.Namespace) -> None:
     """Main function"""
 
     logger = GameLogger()
+
+    if opt.multiplayer:
+        raise ValueError("Multiplayer mode is not yet implemented in the terminal app.")
+
+    if opt.mode == MODE_AUTO:
+        controllers: Dict[Player, Controller] = {Player.LEFT: AutoController(logger)}
+    elif opt.mode == MODE_MODEL:
+        controllers: Dict[Player, Controller] = {Player.LEFT: ModelController(logger)}
+    else:
+        controllers: Dict[Player, Controller] = {Player.LEFT: KeyboardController(key_press_up=[KEY_W, KEY_UP_ARROW], key_press_down=[KEY_S, KEY_DOWN_ARROW])}
+
     random_generator = np.random.default_rng()
     game = Game(random=random_generator, single_player=True, logger=logger)
-    # controllers: Dict[Player, Controller] = {Player.LEFT: KeyboardController(key_press_up=[KEY_W, KEY_UP_ARROW], key_press_down=[KEY_S, KEY_DOWN_ARROW])}
-    controllers: Dict[Player, Controller] = {Player.LEFT: AutoController(logger)}
     terminal_app = TerminalApp(stdscr, game, controllers, logger)
     terminal_app.run()
 
 
 if __name__ == "__main__":
-    curses.wrapper(main)
+    parser = argparse.ArgumentParser("TUI for pong")
+    parser.add_argument("--mode", type=str, choices=[MODE_AUTO, MODE_MANUAL, MODE_MODEL], help="Which mode to play in.")
+    parser.add_argument("--multiplayer", action="store_true", help="Play in multiplayer mode.")
+    args = parser.parse_args()
+
+    curses.wrapper(main, args)
+

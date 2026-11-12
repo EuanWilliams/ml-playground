@@ -3,8 +3,11 @@
 from dataclasses import dataclass
 from typing import List, Optional, Protocol
 
-from pong.constants import PADDLE_HALF_HEIGHT
+from stable_baselines3 import PPO
+
+from pong.constants import PADDLE_HALF_HEIGHT, MODEL_PATH
 from pong.game import PaddleMove, GameLogger
+from pong.model_common import ModelObservationT
 
 
 class Controller(Protocol):
@@ -78,3 +81,23 @@ class AutoController(Controller):
             return PaddleMove.UP
 
         return PaddleMove.STAY
+
+
+class ModelController(Controller):
+    """Controller controlled by Ping - our RL model!"""
+
+    def __init__(self, logger: GameLogger) -> None:
+        self.last_observation: Optional[ModelObservationT] = None
+        self.logger = logger
+        self.model = PPO.load(MODEL_PATH)  # TODO: put in a wrapper
+
+    def add_observation(self, observation: ModelObservationT) -> None:
+        """Adds observation of the balls current position."""
+
+        self.last_observation = observation
+
+    def get_move(self) -> PaddleMove:
+        """Predicts the next action."""
+        action, _states = self.model.predict(self.last_observation)
+        return PaddleMove(action - 1)  # have to shift action -1 as the models action space is 0, 1, 2 and our paddle moves are -1, 0, 1
+

@@ -62,3 +62,11 @@ OBJECT_TO_UNIT_NORMAL_VECTOR = {
     RIGHT_PADDLE: np.array((0, -1)),
 }
 
+# Training
+TRAINING_STEPS = 1_000_000
+GAMMA = 0.995  # From online: - A useful rule of thumb is that the agent effectively “sees” about 1 / (1 − γ) ticks ahead  where γ is gamma
+
+MAX_PADDLE_BOUNCES = 1000  # truncate after 100 paddle bounces
+
+# Inference
+MODEL_PATH = "pong/models/pong_model_it_0"
