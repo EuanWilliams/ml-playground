@@ -1,15 +1,15 @@
 """Controllers are used for controlling paddles in pong"""
 
-import math
 from dataclasses import dataclass
 from typing import List, Optional, Protocol
 
+from pong.constants import PADDLE_HALF_HEIGHT
 from pong.game import PaddleMove, GameLogger
 
 
 class Controller(Protocol):
     def get_move(self) -> PaddleMove:
-        pass
+        ...
 
 
 @dataclass
@@ -64,18 +64,14 @@ class AutoController(Controller):
         target_observation = sorted(self.last_observations, key=lambda observation: observation.ball_position_x)[0]
 
         predicted_next_position_y = target_observation.ball_position_y + target_observation.ball_velocity_y
+        delta_to_ball_next_pos = predicted_next_position_y - (target_observation.paddle_position_y + PADDLE_HALF_HEIGHT)
 
-        if math.floor(predicted_next_position_y) != target_observation.ball_position_y:
-            delta_to_ball_next_pos = predicted_next_position_y - target_observation.paddle_position_y
-        else:
-            delta_to_ball_next_pos = target_observation.ball_position_y - target_observation.paddle_position_y
-
-        if delta_to_ball_next_pos > 0.1:
+        if delta_to_ball_next_pos > 0.2:
             self.logger.add_log_message(
                 f"Ball position is ball_position is {target_observation.ball_position_y}, ball_velocity is {target_observation.ball_velocity_y}. Paddle position is {target_observation.paddle_position_y}, moving paddle DOWN"
             )
             return PaddleMove.DOWN
-        elif delta_to_ball_next_pos < 0.1:
+        elif delta_to_ball_next_pos < -0.2:
             self.logger.add_log_message(
                 f"Ball position is ball_position is {target_observation.ball_position_y}, ball_velocity is {target_observation.ball_velocity_y}. Paddle position is {target_observation.paddle_position_y}, moving paddle UP"
             )
