@@ -68,7 +68,7 @@ OBJECT_TO_UNIT_NORMAL_VECTOR = {
 TRAINING_STEPS = 2_000_000
 GAMMA = 0.995  # From online: - A useful rule of thumb is that the agent effectively “sees” about 1 / (1 − γ) ticks ahead  where γ is gamma
 
-MAX_PADDLE_BOUNCES = 1000  # truncate after 100 paddle bounces
+MAX_PADDLE_BOUNCES = 1000  # truncate after 1000 paddle bounces
 
 # Inference
-MODEL_PATH = "pong/models/pong_model_it_1"
+MODEL_PATH = "pong/models/pong_model_it_0"
