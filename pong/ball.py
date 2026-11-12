@@ -9,11 +9,11 @@ from numpy import typing as npt
 
 from pong.constants import GRID_SIZE_Y, GRID_SIZE_X, MAX_STARTING_ANGLE, STARTING_VELOCITY_SCALAR, MAX_BALL_VELOCITY
 
-
 class Ball:
     """The ball"""
 
-    def __init__(self) -> None:
+    def __init__(self, random: np.random.Generator) -> None:
+        self.random = random
         self.position_x = 0.0
         self.position_y = 0.0
 
@@ -74,8 +74,8 @@ class Ball:
     def reset_to_start(self) -> None:
         """Sets the ball to the middle of the frame and randomises starting velocity"""
 
-        angle = random.uniform(-MAX_STARTING_ANGLE, MAX_STARTING_ANGLE)
-        direction = random.choice((-1, 1))
+        angle = self.random.uniform(-MAX_STARTING_ANGLE, MAX_STARTING_ANGLE)
+        direction = self.random.choice((-1, 1))
         # y velocity in positions per tick - positive means moving top to bottom
         self.velocity_y = STARTING_VELOCITY_SCALAR * math.sin(angle)
         # x velocity in positions per tick - positive means moving left to right

@@ -2,7 +2,7 @@
 
 import curses
 import time
-from typing import Dict, Any, Optional
+from typing import Dict
 
 import numpy as np
 import numpy.typing as npt
@@ -211,7 +211,8 @@ def main(stdscr: curses.window) -> None:
     """Main function"""
 
     logger = GameLogger()
-    game = Game(single_player=True, logger=logger)
+    random_generator = np.random.default_rng()
+    game = Game(random=random_generator, single_player=True, logger=logger)
     # controllers: Dict[Player, Controller] = {Player.LEFT: KeyboardController(key_press_up=[KEY_W, KEY_UP_ARROW], key_press_down=[KEY_S, KEY_DOWN_ARROW])}
     controllers: Dict[Player, Controller] = {Player.LEFT: AutoController(logger)}
     terminal_app = TerminalApp(stdscr, game, controllers, logger)

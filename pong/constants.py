@@ -2,6 +2,8 @@ import math
 
 import numpy as np
 
+RANDOM_SEED = 530
+
 # Game constants
 EMPTY_SPACE = 0
 DEATH_ZONE_LEFT = 1
@@ -21,6 +23,7 @@ STARTING_LIVES = 3
 
 LEVEL_EASY_MAX_BOUNCES = 10  # move to level MEDIUM after 10 paddle bounces.
 LEVEL_MEDIUM_MAX_BOUNCES = 20
+LEVEL_HARD_NEW_BALLS_PADDLE_BOUNCES = 10  # in hard mode every X paddle bounces we add a new ball.
 
 LEVEL_EASY_SCORE_POINTS = 10  # Points gained per bounce during each level
 LEVEL_MEDIUM_SCORE_POINTS = 20
@@ -56,3 +59,4 @@ OBJECT_TO_UNIT_NORMAL_VECTOR = {
     LEFT_PADDLE: np.array((0, 1)),
     RIGHT_PADDLE: np.array((0, -1)),
 }
+

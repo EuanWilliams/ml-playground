@@ -4,6 +4,7 @@ import math
 from typing import Any, Dict, Tuple, Optional, SupportsFloat, List
 
 import gymnasium as gym
+from gymnasium.utils.env_checker import check_env
 import numpy as np
 import numpy.typing as npt
 
@@ -12,7 +13,7 @@ from pong.constants import GRID_SIZE_Y, GRID_SIZE_X, MAX_BALLS, MAX_BALL_VELOCIT
 from pong.game import Game, Player, PaddleMove, TickEvent, Level
 
 ObservationT = npt.NDArray[np.float32]
-ActionT = int
+ActionT = np.int8
 
 
 class TrainingGame(gym.Env):
@@ -24,9 +25,9 @@ class TrainingGame(gym.Env):
 
         shape = 2 + (MAX_BALLS * 5)
         self.observation_space = gym.spaces.Box(low=-1.0, high=1.0, shape=(shape,), dtype=np.float32)
-        self.action_space = gym.spaces.Discrete(3, start=-1, dtype=np.int8)
+        self.action_space = gym.spaces.Discrete(3, start=0, dtype=np.int8)
 
-        self.game = Game(single_player=True, logger=None)  # Start with a fresh game
+        self.game = Game(self.np_random, single_player=True, logger=None)  # Start with a fresh game
 
     def _time_to_reach_paddle(self, ball: Ball) -> float:
         """Estimated ticks until the ball reaches the left paddle's x position. Uses time = distance / speed to estimate the number of ticks until
@@ -47,7 +48,7 @@ class TrainingGame(gym.Env):
     def _get_obs(self) -> ObservationT:
         """Returns an observation"""
 
-        balls_by_proximity = sorted(self.game.balls, key=lambda ball: self._time_to_reach_paddle(ball))
+        balls_by_proximity = sorted(self.game.balls, key=self._time_to_reach_paddle)
 
         # The observation shape is [{paddle observation}, {closest_ball_observation}, {next_closest}, ....]
         observation_list = []
@@ -84,7 +85,7 @@ class TrainingGame(gym.Env):
         """Resets the environment"""
 
         super().reset(seed=seed)
-        self.game = Game(single_player=True, logger=None)  # reset the game state
+        self.game = Game(self.np_random, single_player=True, logger=None)  # reset the game state
 
         observation = self._get_obs()
         info = self._get_info()
@@ -116,7 +117,8 @@ class TrainingGame(gym.Env):
     def step(self, action: ActionT) -> Tuple[ObservationT, SupportsFloat, bool, bool, Dict[str, Any]]:
         """Steps the game forwards one"""
 
-        tick_result = self.game.tick({Player.LEFT: PaddleMove(action)})
+        converted_action = PaddleMove(action - 1)  # action space starts at 0, but our PaddleMove IntEnum starts at -1, so need to shift -1.
+        tick_result = self.game.tick({Player.LEFT: converted_action})
         player_rewards = self._calculate_reward(tick_result)
 
         # TODO: only supports a single player reward
@@ -131,3 +133,5 @@ class TrainingGame(gym.Env):
         observation = self._get_obs()
         info = self._get_info()
         return observation, left_player_reward, terminated, truncated, info
+
+check_env(TrainingGame())

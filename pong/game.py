@@ -1,6 +1,8 @@
 from enum import IntEnum
 from typing import List, Optional, Dict
 
+import numpy as np
+
 from pong.ball import Ball
 from pong.paddle import Paddle
 from pong.constants import (
@@ -30,6 +32,7 @@ from pong.constants import (
     LEFT_PADDLE_X_VALUE,
     RIGHT_PADDLE_X_VALUE,
     MAX_BALLS,
+    LEVEL_HARD_NEW_BALLS_PADDLE_BOUNCES,
 )
 
 
@@ -84,7 +87,8 @@ class GameLogger:
 class Game:
     """The game"""
 
-    def __init__(self, single_player: bool, logger: Optional[GameLogger]) -> None:
+    def __init__(self, random: np.random.Generator, single_player: bool, logger: Optional[GameLogger]) -> None:
+        self.random = random
         self.logger = logger
         self.single_player = single_player
 
@@ -95,7 +99,7 @@ class Game:
 
         self.level: Level = Level.EASY
 
-        self.balls = [Ball()]  # start with a single ball.
+        self.balls = [Ball(self.random)]  # start with a single ball.
         paddle_starting_y = GRID_SIZE_Y // 2
         self.left_paddle = Paddle(starting_y=paddle_starting_y, x_position=LEFT_PADDLE_X_VALUE)
         self.right_paddle = Paddle(starting_y=paddle_starting_y, x_position=RIGHT_PADDLE_X_VALUE) if not self.single_player else None
@@ -182,9 +186,9 @@ class Game:
         else:
             raise ValueError(f"Invalid object for losing a life: {death_zone}")
 
-        if self.left_lives == 0:
+        if self.left_lives <= 0:
             self.winner = Player.RIGHT
-        elif self.right_lives == 0:
+        elif self.right_lives is not None and self.right_lives <= 0:
             self.winner = Player.LEFT
         else:
             ball.reset_to_start()
@@ -226,11 +230,12 @@ class Game:
             if self.level == Level.MEDIUM:
                 # in level medium moving to hard, add another ball.
                 self.level = Level.HARD
-                self.balls.append(Ball())
+                self.balls.append(Ball(self.random))
+                self.last_new_ball_paddle_bounce = self.paddle_bounces
             elif self.level == Level.HARD:
                 # While in level HARD, keep adding new balls until we get to max balls.
-                if self.paddle_bounces % 10 == 0 and len(self.balls) < MAX_BALLS and self.last_new_ball_paddle_bounce != self.paddle_bounces:
-                    self.balls.append(Ball())
+                if self.paddle_bounces >= self.last_new_ball_paddle_bounce + LEVEL_HARD_NEW_BALLS_PADDLE_BOUNCES and len(self.balls) < MAX_BALLS:
+                    self.balls.append(Ball(self.random))
                     self.last_new_ball_paddle_bounce = self.paddle_bounces
             else:
                 raise ValueError(f"Unexpected level with paddle bounces {self.paddle_bounces}, level: {self.level}")
@@ -240,7 +245,7 @@ class Game:
 
         self._log("Starting tick")
         self.tick_events = {Player.LEFT: []}  # must be reset every tick.
-        if self.single_player:
+        if not self.single_player:
             self.tick_events[Player.RIGHT] = []
 
         # Handle the player's action
