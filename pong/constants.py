@@ -5,6 +5,8 @@ import numpy as np
 RANDOM_SEED = 530
 
 # Game constants
+GAME_VERSION_NUMBER = 0.1
+
 EMPTY_SPACE = 0
 DEATH_ZONE_LEFT = 1
 DEATH_ZONE_RIGHT = 2
