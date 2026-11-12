@@ -1,16 +1,18 @@
 """Used for training the RL model"""
+
 import math
 from typing import Any, Dict, Tuple, Optional, SupportsFloat, List
 
 import gymnasium as gym
 import numpy as np
 import numpy.typing as npt
-from gymnasium.core import ObsType
 
 from pong.ball import Ball
 from pong.constants import GRID_SIZE_Y, GRID_SIZE_X, MAX_BALLS, MAX_BALL_VELOCITY
 from pong.game import Game, Player, PaddleMove, TickEvent, Level
-from pong.paddle import Paddle
+
+ObservationT = npt.NDArray[np.float32]
+ActionT = int
 
 
 class TrainingGame(gym.Env):
@@ -42,8 +44,7 @@ class TrainingGame(gym.Env):
             return ((right_wall_x - ball.position_x) + (right_wall_x - paddle_x)) / abs(velocity_x)
         return math.inf  # no horizontal motion, never arrives
 
-
-    def _get_obs(self) -> npt.NDArray[np.float32]:
+    def _get_obs(self) -> ObservationT:
         """Returns an observation"""
 
         balls_by_proximity = sorted(self.game.balls, key=lambda ball: self._time_to_reach_paddle(ball))
@@ -52,12 +53,7 @@ class TrainingGame(gym.Env):
         observation_list = []
 
         # Paddle observation is: [position_y, position_x]
-        observation_list.extend(
-            [
-                self.game.left_paddle.position_y / self.grid_size_y,
-                self.game.left_paddle.position_x / self.grid_size_x
-            ]
-        )
+        observation_list.extend([self.game.left_paddle.position_y / self.grid_size_y, self.game.left_paddle.position_x / self.grid_size_x])
 
         # Each balls observation is in format: [present, ball_position_y, ball_position_x, ball_velocity_y, ball_velocity_x]
         for _ in range(MAX_BALLS):
@@ -84,7 +80,7 @@ class TrainingGame(gym.Env):
         """Returns nothing for the time being but can be used to return debugging information"""
         return {"test": "testing"}
 
-    def reset(self, *, seed: Optional[int] = None, options: Optional[Dict[str, Any]] = None) -> Tuple[ObsType, Dict[str, Any]]:
+    def reset(self, *, seed: Optional[int] = None, options: Optional[Dict[str, Any]] = None) -> Tuple[ObservationT, Dict[str, Any]]:
         """Resets the environment"""
 
         super().reset(seed=seed)
@@ -94,7 +90,7 @@ class TrainingGame(gym.Env):
         info = self._get_info()
         return observation, info
 
-    def _calculate_reward(self, tick_result: Dict[Player, List[TickEvent]]) -> Dict[Player, float]:
+    def _calculate_reward(self, tick_result: Dict[Player, List[TickEvent]]) -> Dict[Player, int]:
         """Calculates the reward for the given step."""
 
         player_scores = {}
@@ -117,7 +113,7 @@ class TrainingGame(gym.Env):
 
         return player_scores
 
-    def step(self, action) -> Tuple[ObsType, SupportsFloat, bool, bool, Dict[str, Any]]:
+    def step(self, action: ActionT) -> Tuple[ObservationT, SupportsFloat, bool, bool, Dict[str, Any]]:
         """Steps the game forwards one"""
 
         tick_result = self.game.tick({Player.LEFT: PaddleMove(action)})
@@ -126,7 +122,10 @@ class TrainingGame(gym.Env):
         # TODO: only supports a single player reward
         left_player_reward = player_rewards[Player.LEFT]
 
-        terminated = self.game.left_lives == 0
+        terminated = self.game.left_lives <= 0
+        if not terminated:
+            assert self.game.winner is None
+
         truncated = False
 
         observation = self._get_obs()

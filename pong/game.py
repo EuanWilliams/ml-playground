@@ -28,7 +28,8 @@ from pong.constants import (
     LEVEL_MEDIUM_HIGH_BALL_X_ACCELERATION,
     OBJECT_TO_UNIT_NORMAL_VECTOR,
     LEFT_PADDLE_X_VALUE,
-    RIGHT_PADDLE_X_VALUE, MAX_BALLS,
+    RIGHT_PADDLE_X_VALUE,
+    MAX_BALLS,
 )
 
 
@@ -92,7 +93,7 @@ class Game:
     def _init_new_game(self) -> None:
         """Initialises a new game"""
 
-        self.level = Level.EASY
+        self.level: Level = Level.EASY
 
         self.balls = [Ball()]  # start with a single ball.
         paddle_starting_y = GRID_SIZE_Y // 2
@@ -112,6 +113,9 @@ class Game:
         self.death_zone_objects = DEATH_ZONES if not self.single_player else DEATH_ZONES_SINGLE_PLAYER
 
         self.tick_index = 0
+        self.last_new_ball_paddle_bounce = (
+            0  # set to the paddle bounce that the last new ball was added at, used to avoid adding new balls between paddle bounces
+        )
         self.tick_events: Dict[Player, List[TickEvent]] = {}  # reset every tick.
 
     def _log(self, message: str) -> None:
@@ -225,16 +229,19 @@ class Game:
                 self.balls.append(Ball())
             elif self.level == Level.HARD:
                 # While in level HARD, keep adding new balls until we get to max balls.
-                if self.paddle_bounces % 10 and len(self.balls) < MAX_BALLS:
+                if self.paddle_bounces % 10 == 0 and len(self.balls) < MAX_BALLS and self.last_new_ball_paddle_bounce != self.paddle_bounces:
                     self.balls.append(Ball())
-            elif self.level != Level.HARD:
+                    self.last_new_ball_paddle_bounce = self.paddle_bounces
+            else:
                 raise ValueError(f"Unexpected level with paddle bounces {self.paddle_bounces}, level: {self.level}")
 
     def tick(self, actions: Dict[Player, PaddleMove]) -> Dict[Player, List[TickEvent]]:
         """Ticks the game's state by one increment"""
 
         self._log("Starting tick")
-        self.tick_events.clear()  # must be reset every tick.
+        self.tick_events = {Player.LEFT: []}  # must be reset every tick.
+        if self.single_player:
+            self.tick_events[Player.RIGHT] = []
 
         # Handle the player's action
         if (left_player_action := actions.get(Player.LEFT)) is not None:

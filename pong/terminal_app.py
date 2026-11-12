@@ -179,6 +179,7 @@ class TerminalApp:
                 if player == Player.LEFT:
                     paddle_position = self.game.left_paddle.position_y
                 elif player == Player.RIGHT:
+                    assert self.game.right_paddle is not None
                     paddle_position = self.game.right_paddle.position_y
                 else:
                     raise ValueError(f"Unhandled player {player.name}")
