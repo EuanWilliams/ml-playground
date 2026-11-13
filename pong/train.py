@@ -6,7 +6,7 @@ from pong.training_environment import PongTrainingEnvironment
 
 MODEL_SAVE_PREFIX = "pong_model"
 
-TENSORBOARD_PATH = './tensorboard_logs'
+TENSORBOARD_PATH = "./tensorboard_logs"
 
 
 def main(opt: argparse.Namespace) -> None:

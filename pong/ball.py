@@ -9,6 +9,7 @@ from numpy import typing as npt
 
 from pong.constants import GRID_SIZE_Y, GRID_SIZE_X, MAX_STARTING_ANGLE, STARTING_VELOCITY_SCALAR, MAX_BALL_VELOCITY
 
+
 class Ball:
     """The ball"""
 

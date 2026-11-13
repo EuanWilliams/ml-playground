@@ -11,8 +11,7 @@ from pong.model_common import ModelObservationT
 
 
 class Controller(Protocol):
-    def get_move(self) -> PaddleMove:
-        ...
+    def get_move(self) -> PaddleMove: ...
 
 
 @dataclass
@@ -98,6 +97,6 @@ class ModelController(Controller):
 
     def get_move(self) -> PaddleMove:
         """Predicts the next action."""
+        assert self.last_observation is not None
         action, _states = self.model.predict(self.last_observation)
-        return PaddleMove(action - 1)  # have to shift action -1 as the models action space is 0, 1, 2 and our paddle moves are -1, 0, 1
-
+        return PaddleMove(int(action) - 1)  # have to shift action -1 as the models action space is 0, 1, 2 and our paddle moves are -1, 0, 1

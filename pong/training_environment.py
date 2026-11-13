@@ -64,7 +64,7 @@ class PongTrainingEnvironment(gym.Env):
     def step(self, action: ModelActionT) -> Tuple[ModelObservationT, SupportsFloat, bool, bool, Dict[str, Any]]:
         """Steps the game forwards one"""
 
-        converted_action = PaddleMove(action - 1)  # action space starts at 0, but our PaddleMove IntEnum starts at -1, so need to shift -1.
+        converted_action = PaddleMove(int(action) - 1)  # action space starts at 0, but our PaddleMove IntEnum starts at -1, so need to shift -1.
         tick_result = self.game.tick({Player.LEFT: converted_action})
         player_rewards = self._calculate_reward(tick_result)
 
@@ -80,5 +80,6 @@ class PongTrainingEnvironment(gym.Env):
         observation = get_observation(self.game)
         info = self._get_info()
         return observation, left_player_reward, terminated, truncated, info
+
 
 check_env(PongTrainingEnvironment())

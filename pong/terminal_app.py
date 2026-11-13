@@ -1,8 +1,10 @@
 """Interface for playing pong via the terminal"""
+
 import argparse
 import curses
 import time
-from typing import Dict
+from enum import IntEnum
+from typing import Dict, Optional
 
 import numpy as np
 import numpy.typing as npt
@@ -39,6 +41,15 @@ KEY_UP_ARROW = 259
 KEY_DOWN_ARROW = 258
 
 
+class GameResult(IntEnum):
+    """Enum for the result of the game"""
+
+    NO_RESULT = 0
+    COMPLETE = 1
+    USER_STOPPED = 2
+    ERROR = 3
+
+
 class TerminalApp:
     """Terminal app for running pong interactively in the terminal"""
 
@@ -53,7 +64,7 @@ class TerminalApp:
         if self.single_player and len(self.controllers) > 1:
             raise ValueError("Multiple controllers provided in single player mode")
         if not self.single_player and len(self.controllers) != 2:
-            raise ValueError("Multiple controllers provided in single player mode")
+            raise ValueError("Single controller provided in multiplayer mode")
 
         self.grid = self._init_grid()
 
@@ -111,7 +122,7 @@ class TerminalApp:
 
         # overlay bottom line
         if self.game.last_life_lost_tick is not None and self.game.tick_index - self.game.last_life_lost_tick <= 25:
-            bottom_line = f"Life lost (×_×)".center(GRID_SIZE_X)
+            bottom_line = "Life lost (×_×)".center(GRID_SIZE_X)
         elif self.single_player:
             bottom_line = f"Current score: {self.game.score} | Lives: {self.game.left_lives}".center(GRID_SIZE_X)
         else:
@@ -143,6 +154,8 @@ class TerminalApp:
     def run(self) -> None:
         """Runs the game, render status to terminal"""
 
+        game_result = GameResult.ERROR  # assume exception
+        game_error: Optional[BaseException] = None
         try:
             self.stdscr.nodelay(True)
 
@@ -155,18 +168,25 @@ class TerminalApp:
                 self._render()
 
             self._game_over()
-            curses.endwin()
-            if self.single_player:
-                print(f"Final score: {self.game.score}")
-            else:
-                print(f"Final scores: Left {self.game.left_lives} : {self.game.right_lives} Right")
+            game_result = GameResult.COMPLETE
         except KeyboardInterrupt:
+            game_result = GameResult.USER_STOPPED
+        except Exception as error:
+            game_result = GameResult.ERROR
+            game_error = error
+        finally:
             curses.endwin()
-            self.logger.output_log_messages()
-        except Exception:
-            curses.endwin()
-            self.logger.output_log_messages()
-            raise
+            if game_result == GameResult.ERROR:
+                self.logger.output_log_messages()
+                assert game_error is not None
+                raise game_error
+            elif game_result == GameResult.COMPLETE:
+                if self.single_player:
+                    print(f"Final score: {self.game.score}")
+                else:
+                    print(f"Final scores: Left {self.game.left_lives} : {self.game.right_lives} Right")
+            else:
+                print("Game stopped by user.")
 
     def _retrieve_controller_actions(self) -> Dict[Player, PaddleMove]:
         """Retrieves the controller's actions"""
@@ -227,9 +247,9 @@ def main(stdscr: curses.window, opt: argparse.Namespace) -> None:
     if opt.mode == MODE_AUTO:
         controllers: Dict[Player, Controller] = {Player.LEFT: AutoController(logger)}
     elif opt.mode == MODE_MODEL:
-        controllers: Dict[Player, Controller] = {Player.LEFT: ModelController(logger)}
+        controllers = {Player.LEFT: ModelController(logger)}
     else:
-        controllers: Dict[Player, Controller] = {Player.LEFT: KeyboardController(key_press_up=[KEY_W, KEY_UP_ARROW], key_press_down=[KEY_S, KEY_DOWN_ARROW])}
+        controllers = {Player.LEFT: KeyboardController(key_press_up=[KEY_W, KEY_UP_ARROW], key_press_down=[KEY_S, KEY_DOWN_ARROW])}
 
     random_generator = np.random.default_rng()
     game = Game(random=random_generator, single_player=True, logger=logger)
@@ -244,4 +264,3 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     curses.wrapper(main, args)
-
