@@ -1,8 +1,0 @@
-{
-    "iteration": 1,
-    "trained_time": "2026-11-15 16:08:41",
-    "trained_steps": 10,
-    "gamma": 0.995,
-    "learning_rate": 0.0003,
-    "tensorboard_path": "./tensorboard_logs"
-}

@@ -5,7 +5,7 @@ from typing import List, Optional, Protocol, Dict, Any
 
 from stable_baselines3 import PPO
 
-from pong.game.game_constants import PADDLE_HALF_HEIGHT
+from pong.game.game_constants import PADDLE_HALF_HEIGHT, RANDOM_SEED
 from pong.game.game import PaddleMove, GameLogger, Game
 from pong.training.model_common import ModelObservationT, get_observation
 
@@ -13,7 +13,7 @@ from pong.training.model_common import ModelObservationT, get_observation
 AUTO_MOVE_DELTA_THRESHOLD = 0.2  # if the ball is within this distance of the paddle, don't move the paddle.
 
 # Model controller
-MODEL_PATH = "pong/models/pong_model_it_0"
+MODEL_PATH = "pong/models/pong_model_it_1/pong_model_it_1"
 
 
 class Controller(Protocol):
@@ -62,9 +62,15 @@ class KeyboardController(Controller):
 class AutoController(Controller):
     """A simple auto controller. Takes the ball's current position and velocity and moves the paddle towards its predicted location."""
 
-    def __init__(self, logger: GameLogger) -> None:
+    def __init__(self, logger: Optional[GameLogger]) -> None:
         self.last_observations: Optional[List[Observation]] = None
         self.logger = logger
+
+    def _log(self, message: str) -> None:
+        """Stores log message if logger is not None"""
+
+        if self.logger is not None:
+            self.logger.add_log_message(message)
 
     def read_observation(self, game: Game, extra_data: Optional[Dict[str, Any]]) -> None:
         """Reads the game and any additional information to determine the next move."""
@@ -84,12 +90,12 @@ class AutoController(Controller):
         delta_to_ball_next_pos = predicted_next_position_y - (target_observation.paddle_position_y + PADDLE_HALF_HEIGHT)
 
         if delta_to_ball_next_pos > AUTO_MOVE_DELTA_THRESHOLD:
-            self.logger.add_log_message(
+            self._log(
                 f"Ball position is ball_position is {target_observation.ball_position_y}, ball_velocity is {target_observation.ball_velocity_y}. Paddle position is {target_observation.paddle_position_y}, moving paddle DOWN"
             )
             return PaddleMove.DOWN
         elif delta_to_ball_next_pos < -AUTO_MOVE_DELTA_THRESHOLD:
-            self.logger.add_log_message(
+            self._log(
                 f"Ball position is ball_position is {target_observation.ball_position_y}, ball_velocity is {target_observation.ball_velocity_y}. Paddle position is {target_observation.paddle_position_y}, moving paddle UP"
             )
             return PaddleMove.UP
@@ -100,10 +106,13 @@ class AutoController(Controller):
 class ModelController(Controller):
     """Controller controlled by Ping - our RL model!"""
 
-    def __init__(self, logger: GameLogger) -> None:
+    def __init__(self, model_path: Optional[str]) -> None:
         self.last_observation: Optional[ModelObservationT] = None
-        self.logger = logger
-        self.model = PPO.load(MODEL_PATH)  # TODO: put in a wrapper
+
+        if model_path is None:
+            model_path = MODEL_PATH
+
+        self.model = PPO.load(model_path, seed=RANDOM_SEED)  # TODO: put in a wrapper
 
     def read_observation(self, game: Game, extra_data: Optional[Dict[str, Any]]) -> None:
         """Reads the game and any additional information to determine the next move."""

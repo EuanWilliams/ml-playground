@@ -4,15 +4,15 @@ import argparse
 import curses
 import time
 from enum import IntEnum
-from typing import Dict, Optional
+from typing import Dict, Optional, Any
 
 import numpy as np
 import numpy.typing as npt
 
-from pong.controllers import KeyboardController, Controller, AutoController, Observation, ModelController
-from pong.game.game import Game, GameLogger, PlayerAction, Player, PaddleMove
+from pong.app import App
+from pong.controllers import KeyboardController, Controller, AutoController, ModelController
+from pong.game.game import Game, GameLogger, PlayerAction, Player
 from pong.game.game_constants import EMPTY_SPACE, DEATH_ZONE_LEFT, DEATH_ZONE_RIGHT, FLOOR, CEILING, LEFT_PADDLE, RIGHT_PADDLE, BALL, GRID_SIZE_Y, GRID_SIZE_X
-from pong.training.model_common import get_observation
 
 Grid = npt.NDArray[np.float32]
 
@@ -21,7 +21,7 @@ MODE_MANUAL = "manual"
 MODE_AUTO = "auto"
 MODE_MODEL = "model"
 
-TICK_SLEEP_TIME = 1 / 30
+RENDER_SLEEP_TIME = 1 / 30
 
 DISPLAY_CHARACTERS = {
     EMPTY_SPACE: " ",
@@ -49,23 +49,50 @@ class GameResult(IntEnum):
     ERROR = 3
 
 
-class TerminalApp:
+class TerminalApp(App):
     """Terminal app for running pong interactively in the terminal"""
 
     def __init__(self, stdscr: curses.window, game: Game, controllers: Dict[Player, Controller], logger: GameLogger) -> None:
+        super().__init__(game, controllers, logger)
         self.stdscr = stdscr
-        self.game = game
-        self.logger = logger
-        self.single_player = self.game.single_player
-
-        self.controllers = controllers
-
-        if self.single_player and len(self.controllers) > 1:
-            raise ValueError("Multiple controllers provided in single player mode")
-        if not self.single_player and len(self.controllers) != 2:
-            raise ValueError("Single controller provided in multiplayer mode")
-
         self.grid = self._init_grid()
+
+    def _get_controller_extra_data(self) -> Dict[str, Any]:
+        """Gets any extra data required for any of the controllers"""
+
+        keystroke = self.stdscr.getch()
+        return {"keystroke": keystroke}
+
+    def _render(self) -> None:
+        """Renders the current status to terminal"""
+
+        # overlay grid
+        frame = "\n".join("".join(DISPLAY_CHARACTERS[cell] for cell in row if cell != BALL) for row in self.grid)
+        self.stdscr.addstr(0, 0, frame)
+
+        # overlay paddles
+        self.stdscr.addstr(self.game.left_paddle.position[0], self.game.left_paddle.position[1], DISPLAY_CHARACTERS[LEFT_PADDLE])
+        if not self.single_player:
+            assert self.game.right_paddle is not None
+            self.stdscr.addstr(self.game.right_paddle.position[0], self.game.right_paddle.position[1], DISPLAY_CHARACTERS[RIGHT_PADDLE])
+
+        # overlay ball
+        for ball in self.game.balls:
+            self.stdscr.addstr(ball.rounded_position[0], ball.rounded_position[1], DISPLAY_CHARACTERS[BALL])
+
+        # overlay bottom line
+        if self.game.last_life_lost_tick is not None and self.game.tick_index - self.game.last_life_lost_tick <= 25:
+            bottom_line = "Life lost (×_×)".center(GRID_SIZE_X)
+        elif self.single_player:
+            bottom_line = f"Current score: {self.game.score} | Lives: {self.game.left_lives}".center(GRID_SIZE_X)
+        else:
+            bottom_line = f"Left {self.game.left_lives} : {self.game.right_lives} Right".center(GRID_SIZE_X)
+
+        self.stdscr.addstr(len(self.grid), 0, bottom_line)
+        self.stdscr.refresh()
+
+        # hold render
+        time.sleep(RENDER_SLEEP_TIME)
 
     def _game_over(self) -> None:
         """Splashes a screen to say game over."""
@@ -102,34 +129,6 @@ class TerminalApp:
         self.stdscr.nodelay(False)
         self.stdscr.getch()
 
-    def _render(self) -> None:
-        """Renders the current status to terminal"""
-
-        # overlay grid
-        frame = "\n".join("".join(DISPLAY_CHARACTERS[cell] for cell in row if cell != BALL) for row in self.grid)
-        self.stdscr.addstr(0, 0, frame)
-
-        # overlay paddles
-        self.stdscr.addstr(self.game.left_paddle.position[0], self.game.left_paddle.position[1], DISPLAY_CHARACTERS[LEFT_PADDLE])
-        if not self.single_player:
-            assert self.game.right_paddle is not None
-            self.stdscr.addstr(self.game.right_paddle.position[0], self.game.right_paddle.position[1], DISPLAY_CHARACTERS[RIGHT_PADDLE])
-
-        # overlay ball
-        for ball in self.game.balls:
-            self.stdscr.addstr(ball.rounded_position[0], ball.rounded_position[1], DISPLAY_CHARACTERS[BALL])
-
-        # overlay bottom line
-        if self.game.last_life_lost_tick is not None and self.game.tick_index - self.game.last_life_lost_tick <= 25:
-            bottom_line = "Life lost (×_×)".center(GRID_SIZE_X)
-        elif self.single_player:
-            bottom_line = f"Current score: {self.game.score} | Lives: {self.game.left_lives}".center(GRID_SIZE_X)
-        else:
-            bottom_line = f"Left {self.game.left_lives} : {self.game.right_lives} Right".center(GRID_SIZE_X)
-
-        self.stdscr.addstr(len(self.grid), 0, bottom_line)
-        self.stdscr.refresh()
-
     def _keystroke_to_action(self, keystroke: int) -> PlayerAction:
         """Converts the keystroke to an action"""
 
@@ -157,16 +156,7 @@ class TerminalApp:
         game_error: Optional[BaseException] = None
         try:
             self.stdscr.nodelay(True)
-
-            while self.game.winner is None:
-                time.sleep(TICK_SLEEP_TIME)
-
-                actions = self._retrieve_controller_actions()
-
-                self.game.tick(actions)
-                self._render()
-
-            self._game_over()
+            self.run_game_to_completion()
             game_result = GameResult.COMPLETE
         except KeyboardInterrupt:
             game_result = GameResult.USER_STOPPED
@@ -186,19 +176,6 @@ class TerminalApp:
                     print(f"Final scores: Left {self.game.left_lives} : {self.game.right_lives} Right")
             else:
                 print("Game stopped by user.")
-
-    def _retrieve_controller_actions(self) -> Dict[Player, PaddleMove]:
-        """Retrieves the controller's actions"""
-
-        keystroke = self.stdscr.getch()
-
-        actions = {}
-        for player, controller in self.controllers.items():
-            controller.read_observation(self.game, extra_data={"keystroke": keystroke})
-            action = controller.get_move()
-            actions[player] = action
-
-        return actions
 
     @staticmethod
     def _init_grid() -> Grid:

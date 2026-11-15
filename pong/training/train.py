@@ -1,4 +1,5 @@
 """For training a Pong model using reinforcement learning."""
+
 import argparse
 import datetime
 import os
@@ -7,6 +8,7 @@ from typing import Dict, Any
 
 from stable_baselines3 import PPO
 
+from pong.game.game_constants import RANDOM_SEED
 from pong.training.training_environment import PongTrainingEnvironment
 
 MODEL_ROOT_SAVE_DIR = "pong/models"
@@ -35,11 +37,11 @@ def main(opt: argparse.Namespace) -> None:
     """Main function"""
 
     env = PongTrainingEnvironment()
-    model = PPO("MlpPolicy", env, verbose=1, gamma=GAMMA, tensorboard_log=TENSORBOARD_PATH)
+    model = PPO("MlpPolicy", env, verbose=1, gamma=GAMMA, tensorboard_log=TENSORBOARD_PATH, seed=RANDOM_SEED)
     model.learn(total_timesteps=TRAINING_STEPS)
     model_output_path = MODEL_SAVE_PREFIX + str(opt.iteration)
 
-    model_save_dir = os.path.join(MODEL_ROOT_SAVE_DIR,  model_output_path)
+    model_save_dir = os.path.join(MODEL_ROOT_SAVE_DIR, model_output_path)
     os.makedirs(model_save_dir, exist_ok=True)
     model_save_path = os.path.join(model_save_dir, model_output_path)
     model.save(model_save_path)

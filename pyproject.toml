@@ -11,4 +11,5 @@ dependencies = [
     "numpy>=2.5.4",
     "stable-baselines3[extra]>=2.9.2",
     "tensorboard>=2.21.0",
+    "tqdm>=4.70.1",
 ]

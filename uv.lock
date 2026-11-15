@@ -1249,6 +1249,7 @@ dependencies = [
     { name = "numpy" },
     { name = "stable-baselines3", extra = ["extra"] },
     { name = "tensorboard" },
+    { name = "tqdm" },
 ]
 
 [package.metadata]
@@ -1259,6 +1260,7 @@ requires-dist = [
     { name = "numpy", specifier = ">=2.5.4" },
     { name = "stable-baselines3", extras = ["extra"], specifier = ">=2.9.2" },
     { name = "tensorboard", specifier = ">=2.21.0" },
+    { name = "tqdm", specifier = ">=4.70.1" },
 ]
 
 [[package]]

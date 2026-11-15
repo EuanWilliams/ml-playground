@@ -6,7 +6,7 @@ import gymnasium as gym
 from gymnasium.utils.env_checker import check_env
 import numpy as np
 
-from pong.game.game_constants import GRID_SIZE_Y, GRID_SIZE_X, MAX_BALLS
+from pong.game.game_constants import GRID_SIZE_Y, GRID_SIZE_X, MAX_BALLS, RANDOM_SEED
 from pong.game.game import Game, Player, PaddleMove, TickEvent, Level
 from pong.training.model_common import ModelObservationT, ModelActionT, get_observation
 
@@ -20,7 +20,7 @@ LEVEL_HARD_REWARD = 3
 
 class PongTrainingEnvironment(gym.Env):
     def __init__(self) -> None:
-        super().__init__()
+        super().__init__(seed=RANDOM_SEED)
 
         self.grid_size_y = GRID_SIZE_Y
         self.grid_size_x = GRID_SIZE_X
