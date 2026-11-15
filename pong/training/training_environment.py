@@ -3,24 +3,42 @@
 from typing import Any, Dict, Tuple, Optional, SupportsFloat, List
 
 import gymnasium as gym
-from gymnasium.utils.env_checker import check_env
 import numpy as np
+from gymnasium.utils.env_checker import check_env
 
-from pong.game.game_constants import GRID_SIZE_Y, GRID_SIZE_X, MAX_BALLS, RANDOM_SEED
+from pong.game.game_constants import GRID_SIZE_Y, GRID_SIZE_X, MAX_BALLS
 from pong.game.game import Game, Player, PaddleMove, TickEvent, Level
 from pong.training.model_common import ModelObservationT, ModelActionT, get_observation
 
-MAX_PADDLE_BOUNCES = 1000  # truncate after 1000 paddle bounces
+MAX_PADDLE_BOUNCES = 1000
 
-LIFE_LOST_REWARD = -10
-LEVEL_EASY_REWARD = 1
-LEVEL_MEDIUM_REWARD = 2
-LEVEL_HARD_REWARD = 3
+LEVEL_EASY_LIFE_LOST_REWARD = -20
+LEVEL_MEDIUM_LIFE_LOST_REWARD = -20
+LEVEL_HARD_LIFE_LOST_REWARD = -20
+
+LEVEL_PADDLE_BOUNCE_EASY_REWARD = 10
+LEVEL_PADDLE_BOUNCE_MEDIUM_REWARD = 10
+LEVEL_PADDLE_BOUNCE_HARD_REWARD = 10
+
+NO_EVENT_REWARD = 1
+
+EVENT_TO_GAME_LEVEL_REWARD = {
+    TickEvent.LIFE_LOST: {
+        Level.EASY: LEVEL_EASY_LIFE_LOST_REWARD,
+        Level.MEDIUM: LEVEL_MEDIUM_LIFE_LOST_REWARD,
+        Level.HARD: LEVEL_HARD_LIFE_LOST_REWARD,
+    },
+    TickEvent.PADDLE_BOUNCE: {
+        Level.EASY: LEVEL_PADDLE_BOUNCE_EASY_REWARD,
+        Level.MEDIUM: LEVEL_PADDLE_BOUNCE_MEDIUM_REWARD,
+        Level.HARD: LEVEL_PADDLE_BOUNCE_HARD_REWARD,
+    },
+}
 
 
 class PongTrainingEnvironment(gym.Env):
     def __init__(self) -> None:
-        super().__init__(seed=RANDOM_SEED)
+        super().__init__()
 
         self.grid_size_y = GRID_SIZE_Y
         self.grid_size_x = GRID_SIZE_X
@@ -51,18 +69,11 @@ class PongTrainingEnvironment(gym.Env):
         player_scores = {}
         for player, events in tick_result.items():
             score = 0
-            for event in events:
-                if event == TickEvent.LIFE_LOST:
-                    score -= LIFE_LOST_REWARD
-                elif event == TickEvent.PADDLE_BOUNCE:
-                    if self.game.level == Level.EASY:
-                        score += LEVEL_EASY_REWARD
-                    elif self.game.level == Level.MEDIUM:
-                        score += LEVEL_MEDIUM_REWARD
-                    elif self.game.level == Level.HARD:
-                        score += LEVEL_HARD_REWARD
-                    else:
-                        raise ValueError(f"Unhandled level {self.game.level}")
+            if len(events) == 0:
+                score += NO_EVENT_REWARD
+            else:
+                for event in events:
+                    score += EVENT_TO_GAME_LEVEL_REWARD[event][self.game.level]
 
             player_scores[player] = score
 

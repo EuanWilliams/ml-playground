@@ -1,4 +1,5 @@
 """Base class for an app which implements a Gam"""
+
 from abc import abstractmethod, ABC
 from typing import Dict, Any, Optional
 

@@ -1,4 +1,5 @@
 """App for testing automated controllers for Pong"""
+
 from typing import Optional, Dict, Any
 
 import numpy as np
@@ -25,4 +26,3 @@ class TestApp(App):
 
     def _game_over(self) -> None:
         pass
-

@@ -85,7 +85,7 @@ class GameLogger:
 
 
 class Game:
-    """The game"""
+    """One game of Pong"""
 
     def __init__(self, random: np.random.Generator, single_player: bool, logger: Optional[GameLogger]) -> None:
         self.random = random

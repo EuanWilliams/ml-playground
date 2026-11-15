@@ -1,0 +1,9 @@
+{
+    "iteration": 0,
+    "trained_time": "2026-11-15 19:45:37",
+    "trained_steps": 800000,
+    "gamma": 0.99,
+    "learning_rate": 0.0003,
+    "n_environments": 8,
+    "n_steps": 256
+}

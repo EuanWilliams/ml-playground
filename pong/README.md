@@ -1,5 +1,4 @@
-# Pong Game
-
+# Pong
 Pong is a game for bouncing balls between paddles and walls.
 
 ## The Game
@@ -8,18 +7,39 @@ Pong is a game for bouncing balls between paddles and walls.
 - In single player the goal is to score the highest score.
 - In multiplater the goal is simple, outlive your opponent.
 
-## The Competitors:
-There are three different competitors:
+---
 
+# Single Player:
+
+## The Competitors
+There are three different competitors:
 - Human (me) - via keyboard interface, fairly limited skills, bad reaction times.
 - Scripted - a 'naive' automated approach, matches the y value of the paddle to the y value of the ball.
-- Model - A model trained using Reinforcement Learning TODO
+- Model - A model trained using Reinforcement Learning.
 
-## The Test
-- The test is simple.
-- Each competitor gets 5 single player games
-- The average of all 5 games is taken as the score.
+## Testing
+- Automatic competitors are tested over 100 games.
+- The winner is the competitor with the highest average score.
+- The huamn competitor score is just updated manually every time there is a new high score. I am pretty crap.
 
-## Results
+## The Goal 
+- Build a model that can beat the scripted controller.
+- The scripted controller is already way better than mee so the scripted controller is the benchmark to beat.
+
+| Controller | Average Score | Min Score | Max Score | Notes               |
+|------------|---------------|-----------|-----------|---------------------|
+| Scripted   | 556.4         | 140       | 1300      | Pretty bloody good. |
+| Human      | 100           | N/a       | N/a       | Embarassing         |
+
+## Notable Model Results
+Each new model which achieves a high score is added here and saved in the `pong/models` directory.
+
+| Model Iteration | Average Score | Min Score | Max Score | Notes                                                                                             |
+|-----------------|---------------|-----------|-----------|---------------------------------------------------------------------------------------------------|
+| 0               | 378.7         | 50        | 950       | First proper model trained, 8 vectorised environments, early stopped after 800,000 steps.         |
+| 6               | 451.6         | 160       | 1050      | Used a linear learning rate, decaying from 0.003 to 0.00001. Early stopped after 1,000,000 steps. |
 
 
+----
+
+# Multiplayer

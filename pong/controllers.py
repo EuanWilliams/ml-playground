@@ -12,9 +12,6 @@ from pong.training.model_common import ModelObservationT, get_observation
 # Scripted controller
 AUTO_MOVE_DELTA_THRESHOLD = 0.2  # if the ball is within this distance of the paddle, don't move the paddle.
 
-# Model controller
-MODEL_PATH = "pong/models/pong_model_it_1/pong_model_it_1"
-
 
 class Controller(Protocol):
     def read_observation(self, game: Game, extra_data: Optional[Dict[str, Any]]) -> None: ...
@@ -106,11 +103,8 @@ class AutoController(Controller):
 class ModelController(Controller):
     """Controller controlled by Ping - our RL model!"""
 
-    def __init__(self, model_path: Optional[str]) -> None:
+    def __init__(self, model_path: str) -> None:
         self.last_observation: Optional[ModelObservationT] = None
-
-        if model_path is None:
-            model_path = MODEL_PATH
 
         self.model = PPO.load(model_path, seed=RANDOM_SEED)  # TODO: put in a wrapper
 
