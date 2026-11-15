@@ -1,16 +1,22 @@
 """Controllers are used for controlling paddles in pong"""
 
 from dataclasses import dataclass
-from typing import List, Optional, Protocol
+from typing import List, Optional, Protocol, Dict, Any
 
 from stable_baselines3 import PPO
 
-from pong.constants import PADDLE_HALF_HEIGHT, MODEL_PATH
-from pong.game import PaddleMove, GameLogger
-from pong.model_common import ModelObservationT
+from pong.game.game_constants import PADDLE_HALF_HEIGHT
+from pong.game.game import PaddleMove, GameLogger, Game
+from pong.training.model_common import ModelObservationT, get_observation
 
+# Scripted controller
+AUTO_MOVE_DELTA_THRESHOLD = 0.2  # if the ball is within this distance of the paddle, don't move the paddle.
+
+# Model controller
+MODEL_PATH = "pong/models/pong_model_it_0"
 
 class Controller(Protocol):
+    def read_observation(self, game: Game, extra_data: Optional[Dict[str, Any]]) -> None: ...
     def get_move(self) -> PaddleMove: ...
 
 
@@ -30,10 +36,16 @@ class KeyboardController(Controller):
         self.key_press_up = key_press_up
         self.key_press_down = key_press_down
 
-    def add_keypress(self, keypress: Optional[int]) -> None:
-        """Stores the keypress."""
+    def read_observation(self, game: Game, extra_data: Optional[Dict[str, Any]]) -> None:
+        """Reads the game and any additional information to determine the next move."""
 
-        self.last_key_press = keypress
+        keystroke = extra_data.get("keystroke") if extra_data else None
+
+        valid_keystroke = None
+        if keystroke in [*self.key_press_up, *self.key_press_down]:
+            valid_keystroke = keystroke
+
+        self.last_key_press = valid_keystroke
 
     def get_move(self) -> PaddleMove:
         """Returns the next move."""
@@ -53,10 +65,12 @@ class AutoController(Controller):
         self.last_observations: Optional[List[Observation]] = None
         self.logger = logger
 
-    def add_observation(self, observation: List[Observation]) -> None:
-        """Adds observation of the balls current position."""
+    def read_observation(self, game: Game, extra_data: Optional[Dict[str, Any]]) -> None:
+        """Reads the game and any additional information to determine the next move."""
 
-        self.last_observations = observation
+        # TODO: only supports single player for now.
+        observations = [Observation(ball.position_y, ball.position_x, ball.velocity_y, game.left_paddle.position_y) for ball in game.balls]
+        self.last_observations = observations
 
     def get_move(self) -> PaddleMove:
         """Selects the next move based on the last observed observation"""
@@ -68,12 +82,12 @@ class AutoController(Controller):
         predicted_next_position_y = target_observation.ball_position_y + target_observation.ball_velocity_y
         delta_to_ball_next_pos = predicted_next_position_y - (target_observation.paddle_position_y + PADDLE_HALF_HEIGHT)
 
-        if delta_to_ball_next_pos > 0.2:
+        if delta_to_ball_next_pos > AUTO_MOVE_DELTA_THRESHOLD:
             self.logger.add_log_message(
                 f"Ball position is ball_position is {target_observation.ball_position_y}, ball_velocity is {target_observation.ball_velocity_y}. Paddle position is {target_observation.paddle_position_y}, moving paddle DOWN"
             )
             return PaddleMove.DOWN
-        elif delta_to_ball_next_pos < -0.2:
+        elif delta_to_ball_next_pos < -AUTO_MOVE_DELTA_THRESHOLD:
             self.logger.add_log_message(
                 f"Ball position is ball_position is {target_observation.ball_position_y}, ball_velocity is {target_observation.ball_velocity_y}. Paddle position is {target_observation.paddle_position_y}, moving paddle UP"
             )
@@ -90,9 +104,10 @@ class ModelController(Controller):
         self.logger = logger
         self.model = PPO.load(MODEL_PATH)  # TODO: put in a wrapper
 
-    def add_observation(self, observation: ModelObservationT) -> None:
-        """Adds observation of the balls current position."""
+    def read_observation(self, game: Game, extra_data: Optional[Dict[str, Any]]) -> None:
+        """Reads the game and any additional information to determine the next move."""
 
+        observation = get_observation(game)
         self.last_observation = observation
 
     def get_move(self) -> PaddleMove:

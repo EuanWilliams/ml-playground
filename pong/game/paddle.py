@@ -2,7 +2,7 @@
 
 from typing import Tuple
 
-from pong.constants import GRID_SIZE_Y
+from pong.game.game_constants import GRID_SIZE_Y
 
 
 class Paddle:

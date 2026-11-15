@@ -6,9 +6,16 @@ import gymnasium as gym
 from gymnasium.utils.env_checker import check_env
 import numpy as np
 
-from pong.constants import GRID_SIZE_Y, GRID_SIZE_X, MAX_BALLS, MAX_PADDLE_BOUNCES
-from pong.game import Game, Player, PaddleMove, TickEvent, Level
-from pong.model_common import ModelObservationT, ModelActionT, get_observation
+from pong.game.game_constants import GRID_SIZE_Y, GRID_SIZE_X, MAX_BALLS
+from pong.game.game import Game, Player, PaddleMove, TickEvent, Level
+from pong.training.model_common import ModelObservationT, ModelActionT, get_observation
+
+MAX_PADDLE_BOUNCES = 1000  # truncate after 1000 paddle bounces
+
+LIFE_LOST_REWARD = -10
+LEVEL_EASY_REWARD = 1
+LEVEL_MEDIUM_REWARD = 2
+LEVEL_HARD_REWARD = 3
 
 
 class PongTrainingEnvironment(gym.Env):
@@ -46,14 +53,14 @@ class PongTrainingEnvironment(gym.Env):
             score = 0
             for event in events:
                 if event == TickEvent.LIFE_LOST:
-                    score -= 10
+                    score -= LIFE_LOST_REWARD
                 elif event == TickEvent.PADDLE_BOUNCE:
                     if self.game.level == Level.EASY:
-                        score += 1
+                        score += LEVEL_EASY_REWARD
                     elif self.game.level == Level.MEDIUM:
-                        score += 3
+                        score += LEVEL_MEDIUM_REWARD
                     elif self.game.level == Level.HARD:
-                        score += 6
+                        score += LEVEL_HARD_REWARD
                     else:
                         raise ValueError(f"Unhandled level {self.game.level}")
 

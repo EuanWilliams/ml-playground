@@ -1,13 +1,12 @@
 """A ball for pong"""
 
 import math
-import random
 from typing import Tuple
 
 import numpy as np
 from numpy import typing as npt
 
-from pong.constants import GRID_SIZE_Y, GRID_SIZE_X, MAX_STARTING_ANGLE, STARTING_VELOCITY_SCALAR, MAX_BALL_VELOCITY
+from pong.game.game_constants import GRID_SIZE_Y, GRID_SIZE_X, MAX_STARTING_ANGLE, STARTING_VELOCITY_SCALAR, MAX_BALL_VELOCITY
 
 
 class Ball:

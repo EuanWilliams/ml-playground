@@ -3,9 +3,9 @@ from typing import List, Optional, Dict
 
 import numpy as np
 
-from pong.ball import Ball
-from pong.paddle import Paddle
-from pong.constants import (
+from pong.game.ball import Ball
+from pong.game.paddle import Paddle
+from pong.game.game_constants import (
     DEATH_ZONE_LEFT,
     DEATH_ZONE_RIGHT,
     FLOOR,

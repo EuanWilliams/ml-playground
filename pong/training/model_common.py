@@ -3,9 +3,9 @@ import math
 import numpy as np
 from numpy import typing as npt
 
-from pong.ball import Ball
-from pong.constants import GRID_SIZE_Y, GRID_SIZE_X, MAX_BALLS, MAX_BALL_VELOCITY
-from pong.game import Game
+from pong.game.ball import Ball
+from pong.game.game_constants import GRID_SIZE_Y, GRID_SIZE_X, MAX_BALLS, MAX_BALL_VELOCITY
+from pong.game.game import Game
 
 ModelObservationT = npt.NDArray[np.float32]
 ModelActionT = np.int8

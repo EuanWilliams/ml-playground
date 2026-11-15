@@ -10,9 +10,9 @@ import numpy as np
 import numpy.typing as npt
 
 from pong.controllers import KeyboardController, Controller, AutoController, Observation, ModelController
-from pong.game import Game, GameLogger, PlayerAction, Player, PaddleMove
-from pong.constants import EMPTY_SPACE, DEATH_ZONE_LEFT, DEATH_ZONE_RIGHT, FLOOR, CEILING, LEFT_PADDLE, RIGHT_PADDLE, BALL, GRID_SIZE_Y, GRID_SIZE_X
-from pong.model_common import get_observation
+from pong.game.game import Game, GameLogger, PlayerAction, Player, PaddleMove
+from pong.game.game_constants import EMPTY_SPACE, DEATH_ZONE_LEFT, DEATH_ZONE_RIGHT, FLOOR, CEILING, LEFT_PADDLE, RIGHT_PADDLE, BALL, GRID_SIZE_Y, GRID_SIZE_X
+from pong.training.model_common import get_observation
 
 Grid = npt.NDArray[np.float32]
 
@@ -20,7 +20,6 @@ Grid = npt.NDArray[np.float32]
 MODE_MANUAL = "manual"
 MODE_AUTO = "auto"
 MODE_MODEL = "model"
-
 
 TICK_SLEEP_TIME = 1 / 30
 
@@ -195,29 +194,7 @@ class TerminalApp:
 
         actions = {}
         for player, controller in self.controllers.items():
-            if isinstance(controller, KeyboardController):
-                valid_keystroke = None
-                if keystroke in (KEY_S, KEY_W, KEY_UP_ARROW, KEY_DOWN_ARROW):
-                    valid_keystroke = keystroke
-
-                controller.add_keypress(valid_keystroke)
-            elif isinstance(controller, AutoController):
-                if player == Player.LEFT:
-                    paddle_position = self.game.left_paddle.position_y
-                elif player == Player.RIGHT:
-                    assert self.game.right_paddle is not None
-                    paddle_position = self.game.right_paddle.position_y
-                else:
-                    raise ValueError(f"Unhandled player {player.name}")
-
-                observations = [Observation(ball.position_y, ball.position_x, ball.velocity_y, paddle_position) for ball in self.game.balls]
-                controller.add_observation(observations)
-            elif isinstance(controller, ModelController):
-                observation = get_observation(self.game)
-                controller.add_observation(observation)
-            else:
-                raise ValueError(f"Unhandled controller type: {type(controller)}")
-
+            controller.read_observation(self.game, extra_data={"keystroke": keystroke})
             action = controller.get_move()
             actions[player] = action
 
@@ -259,7 +236,7 @@ def main(stdscr: curses.window, opt: argparse.Namespace) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("TUI for pong")
-    parser.add_argument("--mode", type=str, choices=[MODE_AUTO, MODE_MANUAL, MODE_MODEL], help="Which mode to play in.")
+    parser.add_argument("--mode", type=str, default=MODE_AUTO, choices=[MODE_AUTO, MODE_MANUAL, MODE_MODEL], help="Which mode to play in.")
     parser.add_argument("--multiplayer", action="store_true", help="Play in multiplayer mode.")
     args = parser.parse_args()
 
