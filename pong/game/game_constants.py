@@ -63,4 +63,3 @@ OBJECT_TO_UNIT_NORMAL_VECTOR = {
     LEFT_PADDLE: np.array((0, 1)),
     RIGHT_PADDLE: np.array((0, -1)),
 }
-

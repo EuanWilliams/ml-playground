@@ -15,6 +15,7 @@ AUTO_MOVE_DELTA_THRESHOLD = 0.2  # if the ball is within this distance of the pa
 # Model controller
 MODEL_PATH = "pong/models/pong_model_it_0"
 
+
 class Controller(Protocol):
     def read_observation(self, game: Game, extra_data: Optional[Dict[str, Any]]) -> None: ...
     def get_move(self) -> PaddleMove: ...
