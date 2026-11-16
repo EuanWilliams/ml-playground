@@ -1,4 +1,5 @@
 """Used for training the RL model"""
+
 import math
 from typing import Any, Dict, Tuple, Optional, SupportsFloat, List
 
@@ -77,7 +78,9 @@ class PongTrainingEnvironment(gym.Env):
                 balls_required = math.floor((starting_paddle_bounces - LEVEL_MEDIUM_MAX_BOUNCES) / LEVEL_HARD_NEW_BALLS_PADDLE_BOUNCES)
                 if balls_required > 0:
                     self.game.balls.extend([Ball(self.np_random) for _ in range(balls_required)])
-                    self.game.last_new_ball_paddle_bounce = math.floor(starting_paddle_bounces / LEVEL_HARD_NEW_BALLS_PADDLE_BOUNCES) * LEVEL_HARD_NEW_BALLS_PADDLE_BOUNCES
+                    self.game.last_new_ball_paddle_bounce = (
+                        math.floor(starting_paddle_bounces / LEVEL_HARD_NEW_BALLS_PADDLE_BOUNCES) * LEVEL_HARD_NEW_BALLS_PADDLE_BOUNCES
+                    )
 
         observation = get_observation(self.game)
         info = self._get_info()

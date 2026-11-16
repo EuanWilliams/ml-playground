@@ -85,7 +85,7 @@ def save_model_version(model: PPO, model_save_dir: str, iteration: int) -> None:
             "enabled": True,
             "patience": EARLY_STOPPING_PATIENCE,
             "min_evaluations": EARLY_STOPPING_MIN_EVALUATIONS,
-            "used": model.num_timesteps <= TRAINING_STEPS
+            "used": model.num_timesteps <= TRAINING_STEPS,
         }
     else:
         early_stopping = {
@@ -114,7 +114,7 @@ def save_model_version(model: PPO, model_save_dir: str, iteration: int) -> None:
             "level_hard_paddle_bounce": LEVEL_PADDLE_BOUNCE_HARD_REWARD,
             "no_event": NO_EVENT_REWARD,
         },
-        "early_stopping": early_stopping
+        "early_stopping": early_stopping,
     }
 
     model_version_file_path = os.path.join(model_save_dir, MODEL_VERSION_FILE_NAME)
@@ -175,13 +175,17 @@ def initialise_fresh_model() -> PPO:
     )
     return model
 
+
 def initialise_model_from_weights(weights_path: str) -> PPO:
     """Initializes a PPO model from existing weights"""
 
     print(f"Loading model from weights: {weights_path}")
     env = make_vec_env(PongTrainingEnvironment, n_envs=NUMBER_OF_ENVIRONMENTS, seed=RANDOM_SEED, vec_env_cls=DummyVecEnv)
-    model = PPO.load(weights_path, env=env, learning_rate=prepare_learning_rate_schedule(), n_steps=N_STEPS, gamma=GAMMA, tensorboard_log=TENSORBOARD_PATH, seed=RANDOM_SEED)
+    model = PPO.load(
+        weights_path, env=env, learning_rate=prepare_learning_rate_schedule(), n_steps=N_STEPS, gamma=GAMMA, tensorboard_log=TENSORBOARD_PATH, seed=RANDOM_SEED
+    )
     return model
+
 
 def main(opt: argparse.Namespace) -> None:
     """Main function"""
@@ -209,7 +213,9 @@ def main(opt: argparse.Namespace) -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("Training script for Pong")
     parser.add_argument("--iteration", type=int, required=True, help="Iteration number")
-    parser.add_argument("--from-weights", type=str, default=None, help="Path to the weights file to load for training. If not provided, a fresh model will be initialized.")
+    parser.add_argument(
+        "--from-weights", type=str, default=None, help="Path to the weights file to load for training. If not provided, a fresh model will be initialized."
+    )
     args = parser.parse_args()
 
     main(args)
