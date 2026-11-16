@@ -39,7 +39,7 @@ KEY_S = 115
 KEY_UP_ARROW = 259
 KEY_DOWN_ARROW = 258
 
-MODEL_PATH = "pong/models/pong_model_it_0/pong_model_it_0"
+MODEL_PATH = "pong/models/pong_model_it_15/best/best_model"
 
 
 class GameResult(IntEnum):
@@ -198,17 +198,17 @@ def main(stdscr: curses.window, opt: argparse.Namespace) -> None:
     logger = GameLogger()
 
     if opt.multiplayer:
-        raise ValueError("Multiplayer mode is not yet implemented in the terminal app.")
+        raise ValueError("Multiplayerplayer mode is not yet implemented in the terminal app.")
 
     if opt.mode == MODE_AUTO:
         controllers: Dict[Player, Controller] = {Player.LEFT: AutoController(logger)}
     elif opt.mode == MODE_MODEL:
-        controllers = {Player.LEFT: ModelController(MODEL_PATH)}
+        controllers = {Player.LEFT: ModelController(MODEL_PATH), Player.RIGHT: AutoController(logger)}
     else:
         controllers = {Player.LEFT: KeyboardController(key_press_up=[KEY_W, KEY_UP_ARROW], key_press_down=[KEY_S, KEY_DOWN_ARROW])}
 
     random_generator = np.random.default_rng()
-    game = Game(random=random_generator, single_player=True, logger=logger)
+    game = Game(random=random_generator, single_player=not opt.multiplayer, logger=logger)
     terminal_app = TerminalApp(stdscr, game, controllers, logger)
     terminal_app.run()
 

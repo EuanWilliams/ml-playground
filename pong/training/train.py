@@ -46,8 +46,10 @@ EVALUATION_EPISODES = 50
 N_STEPS_RAW = 2048
 N_STEPS = N_STEPS_RAW // NUMBER_OF_ENVIRONMENTS  # Adjust n_steps based on the number of environments to keep the total steps per update constant
 
-EARLY_STOPPING_PATIENCE = 5  # Number of evaluations with no improvement to wait before stopping training
-EARLY_STOPPING_MIN_EVALUATIONS = 10  # Minimum number of evaluations before early stopping can be triggered
+ENABLE_EARLY_STOPPING = True  # Whether to enable early stopping based on evaluation performance
+if ENABLE_EARLY_STOPPING:
+    EARLY_STOPPING_PATIENCE = 10  # Number of evaluations with no improvement to wait before stopping training
+    EARLY_STOPPING_MIN_EVALUATIONS = 20  # Minimum number of evaluations before early stopping can be triggered
 
 LEARNING_RATE_APPROACH = "constant"  # Options: "constant", "linear"
 
@@ -78,6 +80,18 @@ def save_model_version(model: PPO, model_save_dir: str, iteration: int) -> None:
     else:
         raise ValueError(f"Invalid learning rate approach: {LEARNING_RATE_APPROACH}")
 
+    if ENABLE_EARLY_STOPPING:
+        early_stopping = {
+            "enabled": True,
+            "patience": EARLY_STOPPING_PATIENCE,
+            "min_evaluations": EARLY_STOPPING_MIN_EVALUATIONS,
+            "used": model.num_timesteps <= TRAINING_STEPS
+        }
+    else:
+        early_stopping = {
+            "enabled": False,
+        }
+
     model_version = {
         "iteration": iteration,
         "trained_time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -100,11 +114,7 @@ def save_model_version(model: PPO, model_save_dir: str, iteration: int) -> None:
             "level_hard_paddle_bounce": LEVEL_PADDLE_BOUNCE_HARD_REWARD,
             "no_event": NO_EVENT_REWARD,
         },
-        "early_stopping": {
-            "patience": EARLY_STOPPING_PATIENCE,
-            "min_evaluations": EARLY_STOPPING_MIN_EVALUATIONS,
-            "used": True if model.num_timesteps <= TRAINING_STEPS else False,
-        },
+        "early_stopping": early_stopping
     }
 
     model_version_file_path = os.path.join(model_save_dir, MODEL_VERSION_FILE_NAME)
@@ -115,9 +125,12 @@ def save_model_version(model: PPO, model_save_dir: str, iteration: int) -> None:
 def init_callbacks(model_save_dir: str) -> List[BaseCallback]:
     """Initializes the callbacks for training"""
 
-    stop_train_callback = StopTrainingOnNoModelImprovement(
-        max_no_improvement_evals=EARLY_STOPPING_PATIENCE, min_evals=EARLY_STOPPING_MIN_EVALUATIONS, verbose=1
-    )
+    if ENABLE_EARLY_STOPPING:
+        stop_train_callback = StopTrainingOnNoModelImprovement(
+            max_no_improvement_evals=EARLY_STOPPING_PATIENCE, min_evals=EARLY_STOPPING_MIN_EVALUATIONS, verbose=1
+        )
+    else:
+        stop_train_callback = None
 
     eval_env = Monitor(PongTrainingEnvironment())
     eval_env.reset(seed=RANDOM_SEED + 1)
@@ -167,7 +180,7 @@ def initialise_model_from_weights(weights_path: str) -> PPO:
 
     print(f"Loading model from weights: {weights_path}")
     env = make_vec_env(PongTrainingEnvironment, n_envs=NUMBER_OF_ENVIRONMENTS, seed=RANDOM_SEED, vec_env_cls=DummyVecEnv)
-    model = PPO.load(weights_path, env=env)
+    model = PPO.load(weights_path, env=env, learning_rate=prepare_learning_rate_schedule(), n_steps=N_STEPS, gamma=GAMMA, tensorboard_log=TENSORBOARD_PATH, seed=RANDOM_SEED)
     return model
 
 def main(opt: argparse.Namespace) -> None:

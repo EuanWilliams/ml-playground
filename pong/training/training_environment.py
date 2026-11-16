@@ -6,7 +6,7 @@ import gymnasium as gym
 import numpy as np
 from gymnasium.utils.env_checker import check_env
 
-from pong.game.game_constants import GRID_SIZE_Y, GRID_SIZE_X, MAX_BALLS, LEVEL_EASY_MAX_BOUNCES, LEVEL_MEDIUM_MAX_BOUNCES
+from pong.game.game_constants import GRID_SIZE_Y, GRID_SIZE_X, MAX_BALLS, LEVEL_EASY_MAX_BOUNCES, LEVEL_MEDIUM_MAX_BOUNCES, LEVEL_HARD_NEW_BALLS_PADDLE_BOUNCES
 from pong.game.ball import Ball
 from pong.game.game import Game, Player, PaddleMove, TickEvent, Level
 from pong.training.model_common import ModelObservationT, ModelActionT, get_observation
@@ -65,7 +65,7 @@ class PongTrainingEnvironment(gym.Env):
         # Level EASY: 0-9 bounces - normal acceleration
         # Level MEDIUM: 10-19 bounces - 2x normal acceleration
         # Level HARD: 20+ bounces - 2x normal acceleration + a new ball every 10 bounces.
-        starting_paddle_bounces = self.np_random.integers(0, 50)
+        starting_paddle_bounces = self.np_random.integers(0, 20)
         self.game.paddle_bounces = int(starting_paddle_bounces)
         if starting_paddle_bounces < LEVEL_EASY_MAX_BOUNCES:
             self.game.level = Level.EASY
@@ -73,11 +73,11 @@ class PongTrainingEnvironment(gym.Env):
             self.game.level = Level.MEDIUM
         else:
             self.game.level = Level.HARD
-            if starting_paddle_bounces >= LEVEL_MEDIUM_MAX_BOUNCES + 10:
-                balls_required = math.floor((starting_paddle_bounces - LEVEL_MEDIUM_MAX_BOUNCES) / 10)
+            if starting_paddle_bounces >= LEVEL_MEDIUM_MAX_BOUNCES + LEVEL_HARD_NEW_BALLS_PADDLE_BOUNCES:
+                balls_required = math.floor((starting_paddle_bounces - LEVEL_MEDIUM_MAX_BOUNCES) / LEVEL_HARD_NEW_BALLS_PADDLE_BOUNCES)
                 if balls_required > 0:
                     self.game.balls.extend([Ball(self.np_random) for _ in range(balls_required)])
-                    self.game.last_new_ball_paddle_bounce = math.floor(starting_paddle_bounces / 10) * 10
+                    self.game.last_new_ball_paddle_bounce = math.floor(starting_paddle_bounces / LEVEL_HARD_NEW_BALLS_PADDLE_BOUNCES) * LEVEL_HARD_NEW_BALLS_PADDLE_BOUNCES
 
         observation = get_observation(self.game)
         info = self._get_info()

@@ -34,11 +34,12 @@ There are three different competitors:
 ## Notable Model Results
 Each new model which achieves a high score is added here and saved in the `pong/models` directory.
 
-| Model Iteration | Average Score | Min Score | Max Score | Notes                                                                                                                                                                    |
-|-----------------|---------------|----------|-----------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| 0               | 378.7         | 50       | 950       | First proper model trained, 8 vectorised environments, early stopped after 800,000 steps.                                                                                |
-| 6               | 451.6         | 160      | 1050      | Used a linear learning rate, decaying from 0.003 to 0.00001. Early stopped after 1,000,000 steps.                                                                        |
-| 12              | 500.3         | 140      | 1100      | Started from it.6 weights, then updated training env so game is started from a randomised start point, providing more exposure to higher levels. Constant learning rate. |
+| Model Iteration | Average Score | Min Score | Max Score | Notes                                                                                                                                                                       |
+|-----------------|---------------|-----------|-----------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| 0               | 378.7         | 50        | 950       | First proper model trained, 8 vectorised environments, early stopped after 800,000 steps.                                                                                   |
+| 6               | 451.6         | 160       | 1050      | Used a linear learning rate, decaying from 0.003 to 0.00001. Early stopped after 1,000,000 steps.                                                                           |
+| 12              | 500.3         | 140       | 1100      | Started from it.6 weights, then updated training env so game is started from a randomised start point, providing more exposure to higher levels. Same linear learning rate. |
+| 15              | 559.0         | 200       | 1350      | Started from it.6 weights, used same randomised start point as it.12, but reduced random start to 0 - 20 paddle bounces (from 0-50). Early stopping enabled but not used.   |
 
 
 
