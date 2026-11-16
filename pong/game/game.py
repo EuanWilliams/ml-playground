@@ -237,6 +237,7 @@ class Game:
                 if self.paddle_bounces >= self.last_new_ball_paddle_bounce + LEVEL_HARD_NEW_BALLS_PADDLE_BOUNCES and len(self.balls) < MAX_BALLS:
                     self.balls.append(Ball(self.random))
                     self.last_new_ball_paddle_bounce = self.paddle_bounces
+
             else:
                 raise ValueError(f"Unexpected level with paddle bounces {self.paddle_bounces}, level: {self.level}")
 

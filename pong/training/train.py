@@ -49,7 +49,7 @@ N_STEPS = N_STEPS_RAW // NUMBER_OF_ENVIRONMENTS  # Adjust n_steps based on the n
 EARLY_STOPPING_PATIENCE = 5  # Number of evaluations with no improvement to wait before stopping training
 EARLY_STOPPING_MIN_EVALUATIONS = 10  # Minimum number of evaluations before early stopping can be triggered
 
-LEARNING_RATE_APPROACH = "linear"  # Options: "constant", "linear"
+LEARNING_RATE_APPROACH = "constant"  # Options: "constant", "linear"
 
 if LEARNING_RATE_APPROACH == "linear":
     STARTING_LEARNING_RATE = 0.0003  # Starting learning rate for the optimizer
@@ -148,6 +148,7 @@ def prepare_learning_rate_schedule() -> Schedule:
 def initialise_fresh_model() -> PPO:
     """Initializes a fresh PPO model"""
 
+    print("Initializing a fresh model.")
     env = make_vec_env(PongTrainingEnvironment, n_envs=NUMBER_OF_ENVIRONMENTS, seed=RANDOM_SEED, vec_env_cls=DummyVecEnv)
     model = PPO(
         "MlpPolicy",
@@ -161,6 +162,13 @@ def initialise_fresh_model() -> PPO:
     )
     return model
 
+def initialise_model_from_weights(weights_path: str) -> PPO:
+    """Initializes a PPO model from existing weights"""
+
+    print(f"Loading model from weights: {weights_path}")
+    env = make_vec_env(PongTrainingEnvironment, n_envs=NUMBER_OF_ENVIRONMENTS, seed=RANDOM_SEED, vec_env_cls=DummyVecEnv)
+    model = PPO.load(weights_path, env=env)
+    return model
 
 def main(opt: argparse.Namespace) -> None:
     """Main function"""
@@ -174,7 +182,11 @@ def main(opt: argparse.Namespace) -> None:
     os.makedirs(model_save_dir, exist_ok=False)
     model_save_path = os.path.join(model_save_dir, model_output_path)
 
-    model = initialise_fresh_model()
+    if opt.from_weights:
+        model = initialise_model_from_weights(opt.from_weights)
+    else:
+
+        model = initialise_fresh_model()
     model.learn(total_timesteps=TRAINING_STEPS, tb_log_name=f"iteration_{opt.iteration}", progress_bar=True, callback=init_callbacks(model_save_dir))
     model.save(model_save_path)
 
@@ -184,6 +196,7 @@ def main(opt: argparse.Namespace) -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("Training script for Pong")
     parser.add_argument("--iteration", type=int, required=True, help="Iteration number")
+    parser.add_argument("--from-weights", type=str, default=None, help="Path to the weights file to load for training. If not provided, a fresh model will be initialized.")
     args = parser.parse_args()
 
     main(args)
