@@ -203,7 +203,7 @@ def main(stdscr: curses.window, opt: argparse.Namespace) -> None:
     if opt.mode == MODE_AUTO:
         controllers: Dict[Player, Controller] = {Player.LEFT: AutoController(logger)}
     elif opt.mode == MODE_MODEL:
-        controllers = {Player.LEFT: ModelController(MODEL_PATH), Player.RIGHT: AutoController(logger)}
+        controllers = {Player.LEFT: ModelController(MODEL_PATH)}
     else:
         controllers = {Player.LEFT: KeyboardController(key_press_up=[KEY_W, KEY_UP_ARROW], key_press_down=[KEY_S, KEY_DOWN_ARROW])}
 
