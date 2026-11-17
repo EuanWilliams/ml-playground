@@ -21,7 +21,7 @@ MODE_MANUAL = "manual"
 MODE_AUTO = "auto"
 MODE_MODEL = "model"
 
-RENDER_SLEEP_TIME = 1 / 30
+RENDER_SLEEP_TIME = 1 / 200
 
 DISPLAY_CHARACTERS = {
     EMPTY_SPACE: " ",
@@ -39,7 +39,7 @@ KEY_S = 115
 KEY_UP_ARROW = 259
 KEY_DOWN_ARROW = 258
 
-MODEL_PATH = "pong/models/pong_model_it_15/best/best_model"
+MODEL_PATH = "pong/models/pong_model_it_22/best/best_model"
 
 
 class GameResult(IntEnum):
