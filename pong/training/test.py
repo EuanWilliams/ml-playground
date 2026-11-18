@@ -41,9 +41,11 @@ def main(mode: str, iteration: Optional[int]) -> None:
         raise ValueError(f"Invalid mode: {mode}")
 
     scores = []
+    life_lost_data = []
     for _ in tqdm(range(TEST_ITERATIONS)):
         app = TestApp(RANDOM, controllers)
         app.run_game_to_completion()
+        life_lost_data.append(app.life_lost_logs)
         scores.append(app.game.score)
 
     print("Test complete.")
@@ -54,6 +56,10 @@ def main(mode: str, iteration: Optional[int]) -> None:
     print(f"Min score achieved: {min(scores)}")
     print(f"Max score achieved: {max(scores)}")
 
+    print("Life lost data:")
+    print("Average level reached before life lost:", statistics.mean([log.level.value for logs in life_lost_data for log in logs]))
+    print("Average paddle bounces before life lost:", statistics.mean([log.paddle_bounce for logs in life_lost_data for log in logs]))
+    print("Average ball count before life lost:", statistics.mean([log.ball_count for logs in life_lost_data for log in logs]))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("Testing script for testing automated models at pong.")

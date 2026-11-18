@@ -16,7 +16,6 @@ class App(ABC):
         self.single_player = self.game.single_player
 
         self.controllers = controllers
-
         if self.single_player and len(self.controllers) > 1:
             raise ValueError("Multiple controllers provided in single player mode")
         if not self.single_player and len(self.controllers) != 2:
@@ -28,10 +27,15 @@ class App(ABC):
         while self.game.winner is None:
             actions = self._retrieve_controller_actions()
 
-            self.game.tick(actions)
+            self._tick(actions)
             self._render()
 
         self._game_over()
+
+    def _tick(self, actions: Dict[Player, PaddleMove]) -> None:
+        """Ticks the game forward by one tick, allows users to override functionality."""
+
+        self.game.tick(actions)
 
     def _retrieve_controller_actions(self) -> Dict[Player, PaddleMove]:
         """Retrieves the controller's actions"""
