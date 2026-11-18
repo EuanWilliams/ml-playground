@@ -16,6 +16,7 @@ class LifeLostLog:
     paddle_bounce: int
     ball_count: int
     ball_x_positions: List[int]
+    last_life: bool
 
 
 class TestApp(App):
@@ -56,4 +57,5 @@ class TestApp(App):
                 paddle_bounce=self.game.paddle_bounces,
                 ball_count=len(self.game.balls),
                 ball_x_positions=ball_x_positions,
+                last_life=self.left_lives_after == 0
             ))

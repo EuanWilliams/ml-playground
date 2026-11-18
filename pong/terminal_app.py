@@ -39,7 +39,7 @@ KEY_S = 115
 KEY_UP_ARROW = 259
 KEY_DOWN_ARROW = 258
 
-MODEL_PATH = "pong/models/pong_model_it_22/best/best_model"
+MODEL_PATH = "pong/models/pong_model_it_24/best/best_model"
 
 
 class GameResult(IntEnum):
@@ -215,7 +215,7 @@ def main(stdscr: curses.window, opt: argparse.Namespace) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("TUI for pong")
-    parser.add_argument("--mode", type=str, default=MODE_AUTO, choices=[MODE_AUTO, MODE_MANUAL, MODE_MODEL], help="Which mode to play in.")
+    parser.add_argument("--mode", type=str, default=MODE_MODEL, choices=[MODE_AUTO, MODE_MANUAL, MODE_MODEL], help="Which mode to play in.")
     parser.add_argument("--multiplayer", action="store_true", help="Play in multiplayer mode.")
     args = parser.parse_args()
 

@@ -1,6 +1,5 @@
 """Used for training the RL model"""
 
-import math
 from typing import Any, Dict, Tuple, Optional, SupportsFloat, List
 
 import gymnasium as gym
@@ -8,8 +7,7 @@ import numpy as np
 from gymnasium.utils.env_checker import check_env
 
 from pong.controllers import AutoController
-from pong.game.game_constants import GRID_SIZE_Y, GRID_SIZE_X, MAX_BALLS, LEVEL_EASY_MAX_BOUNCES, LEVEL_MEDIUM_MAX_BOUNCES, LEVEL_HARD_NEW_BALLS_PADDLE_BOUNCES
-from pong.game.ball import Ball
+from pong.game.game_constants import GRID_SIZE_Y, GRID_SIZE_X, MAX_BALLS
 from pong.game.game import Game, Player, PaddleMove, TickEvent, Level
 from pong.training.model_common import ModelObservationT, ModelActionT, get_observation
 

@@ -34,12 +34,12 @@ TENSORBOARD_PATH = "./tensorboard_logs"
 
 # --- Hyperparams ---
 NUMBER_OF_ENVIRONMENTS = 8  # Number of parallel environments to run for training
-TRAINING_STEPS = 4_000_000
+TRAINING_STEPS = 20_000_000
 # From online: - A useful rule of thumb is that the agent effectively “sees” about 1 / (1 − γ) ticks ahead  where γ is gamma, for example, this means with a gamma of 0.995,
 # the agent sees about 200 ticks ahead.
 GAMMA = 0.990
 
-EVALUATION_FREQUENCY = 50_000 // NUMBER_OF_ENVIRONMENTS
+EVALUATION_FREQUENCY = 100_000 // NUMBER_OF_ENVIRONMENTS
 EVALUATION_EPISODES = 100
 
 # n_steps is the PPO parameter that controls how many steps to run for each environment per update. The number of steps per update is n_steps * n_envs.
@@ -56,7 +56,7 @@ LEARNING_RATE_APPROACH = "linear"  # Options: "constant", "linear"
 if LEARNING_RATE_APPROACH == "linear":
     STARTING_LEARNING_RATE = 0.0003  # Starting learning rate for the optimizer
     ENDING_LEARNING_RATE = 0.00001  # Ending learning rate for the optimizer if using linear decay
-    LEARNING_RATE_END_FRACTION = 0.9  # Fraction of training steps after which the learning rate reaches the ending value if using linear decay
+    LEARNING_RATE_END_FRACTION = 0.90  # Fraction of training steps after which the learning rate reaches the ending value if using linear decay
 elif LEARNING_RATE_APPROACH == "constant":
     CONSTANT_LEARNING_RATE = 0.0003  # Constant learning rate for the optimizer
 

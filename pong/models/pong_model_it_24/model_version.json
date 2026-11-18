@@ -1,0 +1,31 @@
+{
+    "iteration": 24,
+    "trained_time": "2026-11-18 19:41:31",
+    "trained_steps": 10000384,
+    "target_steps": 10000000,
+    "gamma": 0.99,
+    "learning_rate": {
+        "approach": "linear",
+        "start": 0.0003,
+        "end": 1e-05,
+        "end_fraction": 0.9
+    },
+    "n_environments": 8,
+    "n_steps": 256,
+    "eval": {
+        "frequency": 12500,
+        "episodes": 100
+    },
+    "reward": {
+        "level_easy_life_lost": -20,
+        "level_medium_life_lost": -20,
+        "level_hard_life_lost": -20,
+        "level_easy_paddle_bounce": 10,
+        "level_medium_paddle_bounce": 10,
+        "level_hard_paddle_bounce": 10,
+        "no_event": 1
+    },
+    "early_stopping": {
+        "enabled": false
+    }
+}

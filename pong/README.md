@@ -41,6 +41,7 @@ Each new model which achieves a high score is added here and saved in the `pong/
 | 12              | 500.3         | 140       | 1100      | Started from it.6 weights, then updated training env so game is started from a randomised start point, providing more exposure to higher levels. Same linear learning rate.                                                        |
 | 15              | 559.0         | 200       | 1350      | Started from it.6 weights, used same randomised start point as it.12, but reduced random start to 0 - 20 paddle bounces (from 0-50). Early stopping enabled but not used.                                                          |
 | 22              | 650.0         | 200       | 1400      | Started from fresh weights, used updated randomised start which should provide more accurate simulation. Trained for 4,000,000 steps, no early stopping but stored best eval. Learning rate linear decayed from 0.0003 to 0.00001. |
+| 24              | 1212.4        | 180       | 2400      | Wow, started from fresh weights, trained for 10,000,000 steps, no early stopping but stored best eval. Learning rate linear decayed from 0.0003 to 0.00001 at 0.9.                                                                 |
 
 
 ----
