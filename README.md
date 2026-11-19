@@ -1,2 +1,3 @@
-# reinforcement-learning-playground
-Playground for trying out reinforcement learning
+# ml-playground
+Sandbox for playing with ML models and solutions
+
