@@ -27,9 +27,9 @@ There are three different competitors:
 - The scripted controller is already way better than mee so the scripted controller is the benchmark to beat.
 
 | Controller | Average Score | Min Score | Max Score | Notes               |
-|------------|---------------|-----------|-----------|---------------------|
-| Scripted   | 556.4         | 140       | 1300      | Pretty bloody good. |
-| Human      | 100           | N/a       | N/a       | Embarassing         |
+|------------|--------------|-----------|-----------|---------------------|
+| Scripted   | 556.4        | 140       | 1300      | Pretty bloody good. |
+| Human      | 200          | N/a       | N/a       | Embarassing         |
 
 ## Notable Model Results
 Each new model which achieves a high score is added here and saved in the `pong/models` directory.

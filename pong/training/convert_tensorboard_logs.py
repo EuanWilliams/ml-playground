@@ -1,10 +1,11 @@
-"""Convert tensorboard logs to one JSON file per scalar tag for easier analysis."""
+"""Convert tensorboard logs to one JSON file per scalar tag for easier analysis - written by claude"""
 
 import argparse
 import json
 import re
 from collections import defaultdict
 from pathlib import Path
+from typing import Dict, List
 
 from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
 
@@ -15,7 +16,7 @@ def main(input_dir: str, output_dir: str | None = None) -> None:
     out = Path(output_dir) if output_dir else root / "tensorboard_json"
     out.mkdir(parents=True, exist_ok=True)
 
-    data: dict[str, dict[str, list[dict]]] = defaultdict(lambda: defaultdict(list))
+    data: Dict[str, Dict[str, List[Dict]]] = defaultdict(lambda: defaultdict(list))
     for f in root.rglob("events.out.tfevents.*"):
         ea = EventAccumulator(str(f), size_guidance={"scalars": 0})  # 0 = keep all points, no downsampling
         ea.Reload()

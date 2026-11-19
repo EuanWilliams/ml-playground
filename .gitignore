@@ -3,6 +3,7 @@
 pong/tensorboard_logs
 tensorboard_logs
 temp_models
+eurosat_cnn/dataset
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

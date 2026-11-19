@@ -4,12 +4,32 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.14"
+
+# core deps
 dependencies = [
     "black>=26.10.1",
-    "gymnasium>=1.4.0",
     "mypy>=2.4.1",
     "numpy>=2.5.4",
-    "stable-baselines3[extra]>=2.9.2",
     "tensorboard>=2.21.0",
     "tqdm>=4.70.1",
 ]
+
+# add a group for each output
+[dependency-groups]
+pong = [
+    "gymnasium>=1.4.0",
+    "stable-baselines3[extra]>=2.9.2"
+]
+
+cnn = [
+    "torch>=2.15",
+    "torchvision>=0.29.2",
+]
+
+
+[[tool.mypy.overrides]]
+module = [
+    "torchvision.*",
+    "tensorboard.*"
+]
+ignore_missing_imports = true
