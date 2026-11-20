@@ -65,21 +65,23 @@ class EuroSATCNN(nn.Module):
         # Batch size = N
         # Image channels = C0
         # N Classes = K
-        #  1. Convolutional layer 1         in:NxC0x64x64 -> out:NxC1x64x64. C1 = 32, Kernel size=3, stride=1, padding=1, spatial dims remain the same
+        #  1. Convolutional layer 1         in:NxC0x64x64 -> out:NxC1x64x64. C1=32, Kernel size=3, stride=1, padding=1, spatial dims remain the same
         #  2. ReLU Activation Function
-        #  3. Max Pool                      in:NxC1x64x64 -> out:NxC1x32x32. Kernel size = 2, stride 2, spatial dims reduce by 2
-        #  4. Convolutional layer 2         in:NxC1x32x32 -> out:NxC2x32x32. C2 = 64, Kernel size = 3, stride 1, spatial dims remain the same
+        #  3. Max Pool                      in:NxC1x64x64 -> out:NxC1x32x32. Kernel size=2, stride=2, spatial dims halve
+
+        #  4. Convolutional layer 2         in:NxC1x32x32 -> out:NxC2x32x32. C2=64, Kernel size=3, stride=1, spatial dims remain the same
         #  5. ReLU Activation Function
-        #  6. Max Pool                      in:NxC2x32x32 -> out:NxC2x16x16. Kernel size = 3, stride 1, spatial dims remain the same
+        #  6. Max Pool                      in:NxC2x32x32 -> out:NxC2x16x16. Kernel size=2, stride=2, spatial dims halve
+
         #  7. Global Average Pool           in:NxC2x16x16 -> out:NxC2
         #  8. Linear Layer                  in:NxC2       -> out:NxK (logits)
-        self.conv1 = nn.Conv2d(N_CHANNELS, out_channels=32, kernel_size=3, stride=1, padding=1)
+        self.conv1 = nn.Conv2d(in_channels=N_CHANNELS, out_channels=32, kernel_size=3, stride=1, padding=1)
         self.relu = nn.ReLU()
         self.max_pool = nn.MaxPool2d(kernel_size=2, stride=2)
-        self.conv2 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, stride=1)
+        self.conv2 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, stride=1, padding=1)
         self.global_average_pool = nn.AdaptiveAvgPool2d(output_size=1)
         self.flatten = nn.Flatten()
-        self.linear_layer = nn.Linear(in_features=32, out_features=10)
+        self.linear_layer = nn.Linear(in_features=64, out_features=10)
 
         # TOOD: Finish
 
