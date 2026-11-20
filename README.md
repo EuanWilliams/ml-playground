@@ -6,8 +6,8 @@ Sandbox for playing with ML models and solutions
 ## Pong
 - Pong is a simple reinforcement learning powered pong game.
 
-![img_1.png](pong/img_1.png)
-![img_2.png](pong/img_2.png)
+![img_1.png](pong/images/pong_1.png)
+![img_2.png](pong/images/pong_2.png)
 
 ## EuroSatCNN
 - EuroSatCNN is a simple Convolutional Neural Network based image classifier implemented in PyTorch.
