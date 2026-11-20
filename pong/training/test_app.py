@@ -1,4 +1,5 @@
 """App for testing automated controllers for Pong"""
+
 from dataclasses import dataclass
 from typing import Optional, Dict, Any, List
 
@@ -51,11 +52,13 @@ class TestApp(App):
 
         if self.left_lives_after != self.left_lives_before:
             ball_x_positions = [ball.position_x for ball in self.game.balls]
-            self.life_lost_logs.append(LifeLostLog(
-                life=self.left_lives_before,
-                level=self.game.level,
-                paddle_bounce=self.game.paddle_bounces,
-                ball_count=len(self.game.balls),
-                ball_x_positions=ball_x_positions,
-                last_life=self.left_lives_after == 0
-            ))
+            self.life_lost_logs.append(
+                LifeLostLog(
+                    life=self.left_lives_before,
+                    level=self.game.level,
+                    paddle_bounce=self.game.paddle_bounces,
+                    ball_count=len(self.game.balls),
+                    ball_x_positions=ball_x_positions,
+                    last_life=self.left_lives_after == 0,
+                )
+            )

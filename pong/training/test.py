@@ -26,6 +26,7 @@ BEST_MODEL_PATH = "pong_model_it_{ITERATION}/best/best_model"
 
 RANDOM = np.random.default_rng(RANDOM_SEED)
 
+
 def plot_background_levels(ax: plt.Axes, all_paddle_bounces: List[int]) -> None:
     """Plots the background levels for the different levels of the game."""
 
@@ -39,6 +40,7 @@ def plot_background_levels(ax: plt.Axes, all_paddle_bounces: List[int]) -> None:
     step = LEVEL_HARD_NEW_BALLS_PADDLE_BOUNCES
     for n, start in enumerate(range(LEVEL_MEDIUM_MAX_BOUNCES, max(all_paddle_bounces), step)):
         ax.axvspan(start, start + step, color=colours[n % len(colours)], alpha=0.1, label=f"New Ball {n + 2}")
+
 
 def plot_all_lives_lost(life_lost_data: List[Any], plot_output_path: Optional[str]) -> None:
     """Plot the distribution of all life lost events over paddle bounces. This is informative as it shows where the controller most commonly loses lives."""
@@ -58,6 +60,7 @@ def plot_all_lives_lost(life_lost_data: List[Any], plot_output_path: Optional[st
         plt.savefig(output_path)
     plt.show()
 
+
 def plot_last_lives_lost(life_lost_data: List[Any], plot_output_path: Optional[str]) -> None:
     """Plot the distribution of last life lost events over paddle bounces. This is informative as it shows where the controller most commonly loses all its
     lives"""
@@ -74,6 +77,7 @@ def plot_last_lives_lost(life_lost_data: List[Any], plot_output_path: Optional[s
         output_path = os.path.join(plot_output_path, "last_life_lost_distribution.png")
         plt.savefig(output_path)
     plt.show()
+
 
 def main(mode: str, iteration: Optional[int], plot_output_path: str) -> None:
     print(f"Testing controller with {TEST_ITERATIONS} games...")
