@@ -90,7 +90,7 @@ def create_overlays(model_path: str, overlay_path: str, test_dataloader: DataLoa
                 y = band_top + 20 * (line_index + 1)
                 cv2.putText(image, text, (8, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, colour, 1, cv2.LINE_AA)
 
-            cv2.imwrite(os.path.join(overlay_path, f"{labels_index:05d}_{ground_truth}_{predicted_class}.png"), image)
+            cv2.imwrite(os.path.join(overlay_path, f"{overall_index:05d}_{ground_truth}_{predicted_class}.png"), image)
 
     # TODO: add precision and recall values for each class.
     print(f"Overlay images created at {overlay_path}. Overall accuracy: {round(correct / overall_index * 100, 2)}%")
