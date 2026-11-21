@@ -4,6 +4,7 @@ pong/tensorboard_logs
 tensorboard_logs
 temp_models
 eurosat_cnn/dataset
+eurosat_cnn/models/*/overlays/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

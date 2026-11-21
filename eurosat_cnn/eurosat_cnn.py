@@ -1,72 +1,25 @@
 """Simple CNN implemented in pytorch, trained on the EuroSAT dataset. Roughly follows this guide: https://www.datacamp.com/tutorial/pytorch-cnn-tutorial"""
 
-import os
-from typing import Tuple
-
-import argparse
-import numpy as np
 import torch
-import torchvision
-from matplotlib import pyplot as plt
-from tqdm import tqdm
-from torch import nn, optim, Generator, Tensor
-from torchmetrics import Accuracy, Precision, Recall
-from torchvision.datasets import EuroSAT
-from torch.utils.data import DataLoader, random_split
-from torchvision.transforms import transforms
+from torch import nn, Tensor
 
-
-DATASET_DOWNLOAD_DIR = "eurosat_cnn/dataset/"
-MODEL_OUTPUT_DIR = "eurosat_cnn/models/"
-ITERATION = 1
-
-RANDOM_SEED = 530
-RANDOM = Generator().manual_seed(RANDOM_SEED)
-
-DEVICE = "mps"
-
-# Params
-BATCH_SIZE = 16
-
-TRAIN_SPLIT = 0.84
-VAL_SPLIT = 0.01
-TEST_SPLIT = 0.15
-assert sum([TRAIN_SPLIT, TEST_SPLIT, VAL_SPLIT]) == 1.0
-
-LEARNING_RATE = 0.001
-
-EPOCHS = 32
+from common import DEVICE
 
 NUM_CLASSES = 10
 N_CHANNELS = 3
 
-
-def prepare_dataset() -> Tuple[DataLoader[Tensor], DataLoader[Tensor], DataLoader[Tensor]]:
-    """Prepares the dataset, downlaods if needed, splits into test and train splits"""
-
-    print("Downloading EuroSAT dataset.")
-    dataset = EuroSAT(DATASET_DOWNLOAD_DIR, download=True, transform=transforms.ToTensor())
-    print("Done downloading dataset.")
-
-    print(f"Splitting dataset into train={TRAIN_SPLIT}, val={VAL_SPLIT}, test={TEST_SPLIT}")
-    _train, _val, _test = random_split(dataset, [TRAIN_SPLIT, VAL_SPLIT, TEST_SPLIT], generator=RANDOM)
-    train_loader = DataLoader(_train, batch_size=BATCH_SIZE, shuffle=True, generator=RANDOM)
-    val_loader = DataLoader(_val, batch_size=BATCH_SIZE, shuffle=True, generator=RANDOM)
-    test_loader = DataLoader(_test, batch_size=BATCH_SIZE, shuffle=True, generator=RANDOM)
-    return train_loader, val_loader, test_loader
-
-
-def show_sample(dataloader: DataLoader[Tensor]) -> None:
-    """Displays sample of dataset"""
-
-    # get some random training images
-    dataiter = iter(dataloader)
-    images, labels = next(dataiter)
-    image = torchvision.utils.make_grid(images)
-
-    npimg = image.numpy()
-    plt.imshow(np.transpose(npimg, (1, 2, 0)))
-    plt.show()
+INDEX_TO_CLASS = {
+    0: "AnnualCrop",
+    1: "Forest",
+    2: "HerbaceousVegetation",
+    3: "Highway",
+    4: "Industrial",
+    5: "Pasture",
+    6: "PermanentCrop",
+    7: "Residential",
+    8: "River",
+    9: "SeaLake",
+}
 
 
 class EuroSATCNN(nn.Module):
@@ -95,11 +48,11 @@ class EuroSATCNN(nn.Module):
         self.flatten = nn.Flatten()
         self.linear_layer = nn.Linear(in_features=64, out_features=10)
 
-    def forward(self, input: Tensor) -> Tensor:
+    def forward(self, x: Tensor) -> Tensor:
         """Executes a forward pass of the model."""
 
         # Conv pass 1
-        x = self.conv1(input)
+        x = self.conv1(x)
         x = self.relu(x)
         x = self.max_pool(x)
 
@@ -115,86 +68,27 @@ class EuroSATCNN(nn.Module):
 
         return x
 
+    def predict(self, x: Tensor) -> Tensor:
+        """
+        Runs inference on the provided images.
 
-def train_model(train_dataloader: DataLoader[Tensor]) -> EuroSATCNN:
-    """Trains the model"""
+        Input:
+            Accepts one or more images as an input tensor.
+        Returns:
+            Returns a Tensor containing the probability for each class.
+        """
 
-    model = EuroSATCNN().to(DEVICE)
+        self.eval()
+        with torch.inference_mode():
+            output = self.forward(x)
+            return torch.nn.functional.softmax(output, dim=1)
 
-    loss_function = nn.CrossEntropyLoss()
-    optimiser = optim.Adam(model.parameters(), lr=LEARNING_RATE)
+    @classmethod
+    def from_file(cls, file_path: str) -> "EuroSATCNN":
+        """Loads the model from file"""
 
-    for epoch in range(EPOCHS):
-        print(f"Epoch {epoch + 1}/{EPOCHS}")
+        model = cls()
+        model.load_state_dict(torch.load(file_path))
+        model.to(DEVICE)
 
-        for batch_index, (data, targets) in enumerate(tqdm(train_dataloader)):
-            data = data.to(device=DEVICE)
-            targets = targets.to(device=DEVICE)
-            scores = model(data)
-            loss = loss_function(scores, targets)
-            optimiser.zero_grad()
-            loss.backward()
-            optimiser.step()
-
-        print(f"Finished epoch {epoch}, loss={loss}")
-
-    return model
-
-
-def eval_model(model: EuroSATCNN, test_dataloader: DataLoader[Tensor]) -> None:
-    """Evaluates the model against the test set."""
-
-    acc = Accuracy(task="multiclass", num_classes=NUM_CLASSES).to(DEVICE)
-    precision = Precision(task="multiclass", num_classes=NUM_CLASSES).to(DEVICE)
-    recall = Recall(task="multiclass", num_classes=NUM_CLASSES).to(DEVICE)
-
-    model.eval()
-    with torch.no_grad():
-        for images, labels in test_dataloader:
-            images = images.to(DEVICE)
-            labels = labels.to(DEVICE)
-            outputs = model(images)
-            _, preds = torch.max(outputs, 1)
-            acc(preds, labels)
-            precision(preds, labels)
-            recall(preds, labels)
-
-    test_accuracy = acc.compute()
-    test_precision = precision.compute()
-    test_recall = recall.compute()
-    print(f"Model achieved the following results on the test set: ")
-    print(f"Accuracy: {round(float(test_accuracy) * 100, 2)}%")
-    print(f"Precision: {round(float(test_precision) * 100, 2)}%")
-    print(f"Recall: {round(float(test_recall) * 100, 2)}%")
-
-
-def save_model(model: EuroSATCNN, output_path: str) -> None:
-    """Saves the model to the provided path"""
-
-    torch.save(model.state_dict(), output_path)
-
-
-def main(opt: argparse.Namespace) -> None:
-    """Main function"""
-
-    output_path = os.path.join(MODEL_OUTPUT_DIR, f"eurosat_cnn_it_{opt.iteration}.pth")
-    if os.path.exists(output_path):
-        raise ValueError(f"Output path already exists, please use a different iteration number, aborting training: {output_path}")
-
-    train, val, test = prepare_dataset()
-    # show_sample(train)
-
-    trained_model = train_model(train)
-    save_model(trained_model, output_path)
-    # model = EuroSATCNN()
-    # model.load_state_dict(torch.load(os.path.join(MODEL_OUTPUT_DIR, f"eurosat_cnn_it_{ITERATION}.pth")))
-    # model.to(DEVICE)
-    eval_model(trained_model, test)
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser("Train a classification model on the EuroSAT dataset, of Sentinel-2 satellite images.")
-    parser.add_argument("--iteration", type=int, required=True, help="Iteration of the model to train")
-    args = parser.parse_args()
-
-    main(args)
+        return model

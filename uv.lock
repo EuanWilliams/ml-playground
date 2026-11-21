@@ -1265,6 +1265,7 @@ dependencies = [
 
 [package.dev-dependencies]
 cnn = [
+    { name = "opencv-python" },
     { name = "torch" },
     { name = "torchmetrics" },
     { name = "torchvision" },
@@ -1285,6 +1286,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 cnn = [
+    { name = "opencv-python", specifier = ">=5.0.0.93" },
     { name = "torch", specifier = ">=2.15" },
     { name = "torchmetrics", specifier = ">=1.9.0" },
     { name = "torchvision", specifier = ">=0.29.2" },
