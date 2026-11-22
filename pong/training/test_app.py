@@ -16,7 +16,7 @@ class LifeLostLog:
     level: Level
     paddle_bounce: int
     ball_count: int
-    ball_x_positions: List[int]
+    ball_x_positions: List[float]
     last_life: bool
 
 

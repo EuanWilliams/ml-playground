@@ -6,18 +6,44 @@ import os
 import torch
 from torch import Tensor, nn, optim
 from torch.utils.data import DataLoader
+from torchinfo import summary
 from tqdm import tqdm
 
-from common import DEVICE, prepare_dataset
-from eurosat_cnn import EuroSATCNN
-from test import eval_model
+from common import DEVICE, prepare_dataset, TEST_SPLIT, TRAIN_SPLIT, RANDOM_SEED, BATCH_SIZE
+from eurosat_cnn import EuroSATCNN, IMAGE_SIZE, N_CHANNELS
 
 MODEL_OUTPUT_DIR = "eurosat_cnn/models/"
-ITERATION = 1
+MODEL_SUMMARY_FILENAME = "model_summary.txt"
+MODEL_VERSION_FILENAME = "model_version.json"
 
 LEARNING_RATE = 0.001
 
 EPOCHS = 32
+
+
+def write_model_details(model: EuroSATCNN, iteration: int) -> None:
+    """Writes a summary of the model to the provided path"""
+
+    model_summary = summary(
+        model, input_size=(1, N_CHANNELS, IMAGE_SIZE, IMAGE_SIZE), col_names=["input_size", "output_size", "num_params", "kernel_size", "mult_adds"]
+    )
+    with open(os.path.join(MODEL_OUTPUT_DIR, MODEL_SUMMARY_FILENAME), "w") as f:
+        f.write(str(model_summary))
+
+    model_version = {
+        "iteration": iteration,
+        "epochs": EPOCHS,
+        "learning_rate": LEARNING_RATE,
+        "model": str(model),
+        "random_seed": RANDOM_SEED,
+        "batch_size": BATCH_SIZE,
+        "train_split": TRAIN_SPLIT,
+        "test_split": TEST_SPLIT,
+        "image_size": IMAGE_SIZE,
+        "n_channels": N_CHANNELS,
+    }
+    with open(os.path.join(MODEL_OUTPUT_DIR, MODEL_VERSION_FILENAME), "w") as f:
+        f.write(str(model_version))
 
 
 def train_model(train_dataloader: DataLoader[Tensor]) -> EuroSATCNN:
@@ -59,14 +85,12 @@ def main(opt: argparse.Namespace) -> None:
     if os.path.exists(output_path):
         raise ValueError(f"Output path already exists, please use a different iteration number, aborting training: {output_path}")
 
-    train, _, test = prepare_dataset()
+    train, test = prepare_dataset()
 
     # train model
     trained_model = train_model(train)
     save_model(trained_model, output_path)
-
-    # test model
-    eval_model(trained_model, test)
+    write_model_details(trained_model, opt.iteration)
 
 
 if __name__ == "__main__":

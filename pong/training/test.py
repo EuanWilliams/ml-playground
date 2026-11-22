@@ -27,7 +27,7 @@ BEST_MODEL_PATH = "pong_model_it_{ITERATION}/best/best_model"
 RANDOM = np.random.default_rng(RANDOM_SEED)
 
 
-def plot_background_levels(ax: plt.Axes, all_paddle_bounces: List[int]) -> None:
+def plot_background_levels(ax: plt.Axes, all_paddle_bounces: List[int]) -> None:  # type: ignore[name-defined]
     """Plots the background levels for the different levels of the game."""
 
     # overlay a shaded background for each level:

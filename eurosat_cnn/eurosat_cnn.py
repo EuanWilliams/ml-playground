@@ -8,6 +8,8 @@ from common import DEVICE
 NUM_CLASSES = 10
 N_CHANNELS = 3
 
+IMAGE_SIZE = 64
+
 INDEX_TO_CLASS = {
     0: "AnnualCrop",
     1: "Forest",

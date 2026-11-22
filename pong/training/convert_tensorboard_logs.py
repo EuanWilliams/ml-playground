@@ -16,7 +16,7 @@ def main(input_dir: str, output_dir: str | None = None) -> None:
     out = Path(output_dir) if output_dir else root / "tensorboard_json"
     out.mkdir(parents=True, exist_ok=True)
 
-    data: Dict[str, Dict[str, List[Dict]]] = defaultdict(lambda: defaultdict(list))
+    data: Dict[str, Dict[str, List[Dict]]] = defaultdict(lambda: defaultdict(list))  # type: ignore[type-arg]
     for f in root.rglob("events.out.tfevents.*"):
         ea = EventAccumulator(str(f), size_guidance={"scalars": 0})  # 0 = keep all points, no downsampling
         ea.Reload()

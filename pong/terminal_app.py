@@ -168,6 +168,7 @@ class TerminalApp(App):
         finally:
             curses.endwin()
             if game_result == GameResult.ERROR:
+                assert self.logger is not None
                 self.logger.output_log_messages()
                 assert game_error is not None
                 raise game_error

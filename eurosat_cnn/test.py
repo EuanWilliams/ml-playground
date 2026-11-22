@@ -20,6 +20,7 @@ RED = (0, 0, 255)
 OVERLAY_SCALE = 5
 BAND_HEIGHT = 80
 
+
 def eval_model(model_path: str, test_dataloader: DataLoader[Tensor]) -> None:
     """Evaluates the model against the test set."""
 
@@ -73,7 +74,7 @@ def create_overlays(model_path: str, overlay_path: str, test_dataloader: DataLoa
             ground_truth = INDEX_TO_CLASS[int(labels[labels_index])]
 
             if predicted_class == ground_truth:
-                correct +=1
+                correct += 1
 
             image = cv2.resize(transposed_frame, None, fx=OVERLAY_SCALE, fy=OVERLAY_SCALE, interpolation=cv2.INTER_NEAREST)
             image = cv2.copyMakeBorder(image, 0, BAND_HEIGHT, 0, 0, cv2.BORDER_CONSTANT, value=(0, 0, 0))
@@ -99,7 +100,7 @@ def create_overlays(model_path: str, overlay_path: str, test_dataloader: DataLoa
 def main(opt: argparse.Namespace) -> None:
     """Main function"""
 
-    _, _, test = prepare_dataset()
+    _, test = prepare_dataset()
     eval_model(opt.model_path, test)
 
     if opt.overlay_path is not None:
