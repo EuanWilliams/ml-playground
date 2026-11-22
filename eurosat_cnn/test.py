@@ -9,6 +9,7 @@ from typing import Tuple, List, Dict, Counter as CounterT
 
 import cv2
 import numpy as np
+import matplotlib.pyplot as plt
 from torch import Tensor
 from torch.utils.data import DataLoader
 
@@ -33,6 +34,13 @@ class ClassResult:
     precision: float
     recall: float
     accuracy: float
+
+    @property
+    def f1_score(self) -> float:
+        """Calculates the F1 score for the class"""
+        if self.precision + self.recall == 0:
+            return 0.0
+        return 2 * (self.precision * self.recall) / (self.precision + self.recall)
 
 
 def find_model_file(model_dir: str) -> str:
@@ -81,10 +89,38 @@ def create_overlays(overlays: List[OverlayData], evaluation_dir: str) -> None:
     print(f"Overlay images created at {overlay_path}.")
 
 
-def write_class_metrics(class_metrics: List[ClassResult], model_dir: str) -> None:
+def write_performance_graphs(class_metrics: List[ClassResult], evaluation_dir: str) -> None:
+    """Writes precision, recall and f1 graphs to files"""
+
+    classes = [class_metric.class_ for class_metric in class_metrics]
+    precisions = [class_metric.precision for class_metric in class_metrics]
+    recalls = [class_metric.recall for class_metric in class_metrics]
+    accuracies = [class_metric.accuracy for class_metric in class_metrics]
+    f1 = [class_metric.f1_score for class_metric in class_metrics]
+
+    colours = ["blue", "orange", "green", "red", "purple", "brown", "pink", "gray", "olive", "cyan"]
+    for metric_name, metric_values in [("precision", precisions), ("recall", recalls), ("accuracy", accuracies), ("f1", f1)]:
+        plt.figure(figsize=(10, 6))
+        plt.bar(classes, metric_values, color=colours)
+        plt.xlabel("Class")
+        plt.ylabel(metric_name.capitalize())
+        plt.title(f"{metric_name.capitalize()} per Class")
+        plt.xticks(rotation=45)
+        plt.ylim(0, 1)
+        plt.grid(axis="y")
+        plt.tight_layout()
+
+        graph_path = os.path.join(evaluation_dir, f"{metric_name}_per_class.png")
+        plt.savefig(graph_path)
+        plt.close()
+
+    print(f"Performance graphs saved to {evaluation_dir}")
+
+
+def write_class_metrics(class_metrics: List[ClassResult], evaluation_dir: str) -> None:
     """Writes the class metrics to a file"""
 
-    metrics_output_path = os.path.join(model_dir, EVALUATION_DIR, "class_metrics.json")
+    metrics_output_path = os.path.join(evaluation_dir, "class_metrics.json")
     output_json = {
         class_metric.class_: {"precision": class_metric.precision, "recall": class_metric.recall, "accuracy": class_metric.accuracy}
         for class_metric in class_metrics
@@ -152,7 +188,8 @@ def main(opt: argparse.Namespace) -> None:
     class_results, overlays = eval_model(image_classifier, test)
 
     class_metrics = calculate_metrics(class_results)
-    write_class_metrics(class_metrics, opt.model_dir)
+    write_class_metrics(class_metrics, evaluation_dir)
+    write_performance_graphs(class_metrics, evaluation_dir)
 
     if opt.overlays is not None:
         create_overlays(overlays, evaluation_dir)
