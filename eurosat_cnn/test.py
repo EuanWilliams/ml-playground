@@ -5,7 +5,7 @@ import json
 import os
 from collections import Counter
 from dataclasses import dataclass
-from typing import Tuple, List, Dict
+from typing import Tuple, List, Dict, Counter as CounterT
 
 import cv2
 import numpy as np
@@ -76,7 +76,7 @@ def create_overlays(overlays: List[OverlayData], evaluation_dir: str) -> None:
 
         cv2.imwrite(os.path.join(overlay_path, f"{overall_index:05d}_{ground_truth}_{predicted_class}.png"), image)
 
-        overall_index +=1
+        overall_index += 1
 
     print(f"Overlay images created at {overlay_path}.")
 
@@ -85,12 +85,15 @@ def write_class_metrics(class_metrics: List[ClassResult], model_dir: str) -> Non
     """Writes the class metrics to a file"""
 
     metrics_output_path = os.path.join(model_dir, EVALUATION_DIR, "class_metrics.json")
-    output_json = {class_metric.class_: {"precision": class_metric.precision, "recall": class_metric.recall, "accuracy": class_metric.accuracy} for class_metric in class_metrics}
+    output_json = {
+        class_metric.class_: {"precision": class_metric.precision, "recall": class_metric.recall, "accuracy": class_metric.accuracy}
+        for class_metric in class_metrics
+    }
     with open(metrics_output_path, "w") as f:
         f.write(json.dumps(output_json, indent=4))
 
 
-def calculate_metrics(class_results: Dict[str, Counter]) -> List[ClassResult]:
+def calculate_metrics(class_results: Dict[str, CounterT[str]]) -> List[ClassResult]:
     """Calculates and prints precision, recall and accuracy for each class"""
 
     class_metrics: List[ClassResult] = []
@@ -108,11 +111,11 @@ def calculate_metrics(class_results: Dict[str, Counter]) -> List[ClassResult]:
     return class_metrics
 
 
-def eval_model(classifier: EurosatImageClassifier, test_dataloader: DataLoader[Tensor]) -> Tuple[Dict[str, Counter], List[OverlayData]]:
+def eval_model(classifier: EurosatImageClassifier, test_dataloader: DataLoader[Tensor]) -> Tuple[Dict[str, CounterT[str]], List[OverlayData]]:
     """Evaluates the model against the test set"""
 
     # Counter of class: {tp, fp, fn}
-    class_results = {class_name: Counter() for class_name in INDEX_TO_CLASS.values()}
+    class_results: Dict[str, CounterT[str]] = {class_name: Counter() for class_name in INDEX_TO_CLASS.values()}
 
     overlays: List[OverlayData] = []  # List of tuples containing (image, ground_truth, predicted_class, score)
 
