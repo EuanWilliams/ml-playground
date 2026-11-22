@@ -50,3 +50,6 @@ def show_sample(dataloader: DataLoader[Tensor]) -> None:
     npimg = image.numpy()
     plt.imshow(np.transpose(npimg, (1, 2, 0)))
     plt.show()
+
+
+MODEL_FILE_EXTENSION = ".pth"

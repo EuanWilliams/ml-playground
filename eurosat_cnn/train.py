@@ -3,6 +3,7 @@
 import argparse
 import os
 import json
+from datetime import datetime
 
 import torch
 from torch import Tensor, nn, optim
@@ -19,7 +20,7 @@ MODEL_VERSION_FILENAME = "model_version.json"
 
 LEARNING_RATE = 0.001
 
-EPOCHS = 1
+EPOCHS = 32
 
 
 def write_model_details(model: EuroSATCNN, model_output_dir: str, iteration: int) -> None:
@@ -41,6 +42,7 @@ def write_model_details(model: EuroSATCNN, model_output_dir: str, iteration: int
         "test_split": TEST_SPLIT,
         "image_size": IMAGE_SIZE,
         "n_channels": N_CHANNELS,
+        "date_time": datetime.now().strftime("%d-%m-%Y %H:%M:%S"),
     }
     with open(os.path.join(model_output_dir, MODEL_VERSION_FILENAME), "w") as f:
         f.write(json.dumps(model_version, indent=4))
