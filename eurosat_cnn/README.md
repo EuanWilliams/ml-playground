@@ -6,4 +6,9 @@
 
 # Results
 
-### Iteration 0
+### Iteration 0:
+- Initial implementation.
+- Total of 2 convolutional layers
+
+
+![f1_per_class.png](models/eurosat_cnn_it_0/evaluation/f1_per_class.png)

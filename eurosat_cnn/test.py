@@ -29,7 +29,7 @@ OverlayData = Tuple[np.ndarray, str, str, float]  # Tuple of (image, ground_trut
 
 
 @dataclass
-class ClassResult:
+class ClassMetrics:
     class_: str
     precision: float
     recall: float
@@ -40,6 +40,22 @@ class ClassResult:
         """Calculates the F1 score for the class"""
         if self.precision + self.recall == 0:
             return 0.0
+
+        return 2 * (self.precision * self.recall) / (self.precision + self.recall)
+
+
+@dataclass
+class OverallMetrics:
+    precision: float
+    recall: float
+    accuracy: float
+
+    @property
+    def f1_score(self) -> float:
+        """Calculates the F1 score for the class"""
+        if self.precision + self.recall == 0:
+            return 0.0
+
         return 2 * (self.precision * self.recall) / (self.precision + self.recall)
 
 
@@ -89,7 +105,7 @@ def create_overlays(overlays: List[OverlayData], evaluation_dir: str) -> None:
     print(f"Overlay images created at {overlay_path}.")
 
 
-def write_performance_graphs(class_metrics: List[ClassResult], evaluation_dir: str) -> None:
+def write_performance_graphs(class_metrics: List[ClassMetrics], evaluation_dir: str) -> None:
     """Writes precision, recall and f1 graphs to files"""
 
     classes = [class_metric.class_ for class_metric in class_metrics]
@@ -117,22 +133,35 @@ def write_performance_graphs(class_metrics: List[ClassResult], evaluation_dir: s
     print(f"Performance graphs saved to {evaluation_dir}")
 
 
-def write_class_metrics(class_metrics: List[ClassResult], evaluation_dir: str) -> None:
+def write_class_metrics(class_metrics: List[ClassMetrics], overall_metrics: OverallMetrics, evaluation_dir: str) -> None:
     """Writes the class metrics to a file"""
 
     metrics_output_path = os.path.join(evaluation_dir, "class_metrics.json")
     output_json = {
-        class_metric.class_: {"precision": class_metric.precision, "recall": class_metric.recall, "accuracy": class_metric.accuracy}
-        for class_metric in class_metrics
+        "all_classes": {
+            "precision": round(overall_metrics.precision, 4),
+            "recall": round(overall_metrics.recall, 4),
+            "accuracy": round(overall_metrics.accuracy, 4),
+            "f1": round(overall_metrics.f1_score, 4),
+        },
+        "class_metrics": {
+            class_metric.class_: {
+                "precision": round(class_metric.precision, 4),
+                "recall": round(class_metric.recall, 4),
+                "accuracy": round(class_metric.accuracy, 4),
+                "f1": round(class_metric.f1_score, 4),
+            }
+            for class_metric in class_metrics
+        },
     }
     with open(metrics_output_path, "w") as f:
         f.write(json.dumps(output_json, indent=4))
 
 
-def calculate_metrics(class_results: Dict[str, CounterT[str]]) -> List[ClassResult]:
+def calculate_metrics(class_results: Dict[str, CounterT[str]]) -> Tuple[List[ClassMetrics], OverallMetrics]:
     """Calculates and prints precision, recall and accuracy for each class"""
 
-    class_metrics: List[ClassResult] = []
+    class_metrics: List[ClassMetrics] = []
     for class_name, results in class_results.items():
         tp = results["tp"]
         fp = results["fp"]
@@ -142,9 +171,18 @@ def calculate_metrics(class_results: Dict[str, CounterT[str]]) -> List[ClassResu
         recall = tp / (tp + fn) if (tp + fn) > 0 else 0
         accuracy = tp / (tp + fp + fn) if (tp + fp + fn) > 0 else 0
 
-        class_metrics.append(ClassResult(class_name, precision, recall, accuracy))
+        class_metrics.append(ClassMetrics(class_name, precision, recall, accuracy))
 
-    return class_metrics
+    overall_tp = sum(results["tp"] for results in class_results.values())
+    overall_fp = sum(results["fp"] for results in class_results.values())
+    overall_fn = sum(results["fn"] for results in class_results.values())
+    overall_metrics = OverallMetrics(
+        precision=overall_tp / (overall_tp + overall_fp) if (overall_tp + overall_fp) > 0 else 0,
+        recall=overall_tp / (overall_tp + overall_fn) if (overall_tp + overall_fn) > 0 else 0,
+        accuracy=overall_tp / (overall_tp + overall_fp + overall_fn) if (overall_tp + overall_fp + overall_fn) > 0 else 0,
+    )
+
+    return class_metrics, overall_metrics
 
 
 def eval_model(classifier: EurosatImageClassifier, test_dataloader: DataLoader[Tensor]) -> Tuple[Dict[str, CounterT[str]], List[OverlayData]]:
@@ -187,8 +225,8 @@ def main(opt: argparse.Namespace) -> None:
 
     class_results, overlays = eval_model(image_classifier, test)
 
-    class_metrics = calculate_metrics(class_results)
-    write_class_metrics(class_metrics, evaluation_dir)
+    class_metrics, overall_metrics = calculate_metrics(class_results)
+    write_class_metrics(class_metrics, overall_metrics, evaluation_dir)
     write_performance_graphs(class_metrics, evaluation_dir)
 
     if opt.overlays is not None:
