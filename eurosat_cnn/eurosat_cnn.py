@@ -45,33 +45,43 @@ class EuroSATCNN(nn.Module):
         #  8. ReLU Activation Function
         #  9. Max Pool                      in:NxC3x16x16 -> out:NxC3x8x8. Kernel size=2, stride=2, spatial dims halve
 
-        #  10. Global Average Pool           in:NxC3x8x8 -> out:NxC3
-        #  11. Linear Layer                  in:NxC3       -> out:NxK (logits)
+        #  10. Convolutional layer 4         in:NxC3x8x8  -> out:NxC4x8x8. C4=256, Kernel size=3, stride=1, padding=1, spatial dims remain the same
+        #  11. ReLU Activation Function
+        #  12. Max Pool                      in:NxC4x8x8  -> out:NxC4x4x4. Kernel size=2, stride=2, spatial dims halve
+
+        #  13. Global Average Pool           in:NxC4x4x4  -> out:NxC4
+        #  14. Linear Layer                  in:NxC4      -> out:NxK (logits)
         self.conv1 = nn.Conv2d(in_channels=N_CHANNELS, out_channels=32, kernel_size=3, stride=1, padding=1)
-        self.relu = nn.ReLU()
         self.max_pool = nn.MaxPool2d(kernel_size=2, stride=2)
         self.conv2 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, stride=1, padding=1)
         self.conv3 = nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, stride=1, padding=1)
+        self.conv4 = nn.Conv2d(in_channels=128, out_channels=256, kernel_size=3, stride=1, padding=1)
+        self.leaky_relu = nn.LeakyReLU()
         self.global_average_pool = nn.AdaptiveAvgPool2d(output_size=1)
         self.flatten = nn.Flatten()
-        self.linear_layer = nn.Linear(in_features=128, out_features=10)
+        self.linear_layer = nn.Linear(in_features=256, out_features=10)
 
     def forward(self, x: Tensor) -> Tensor:
         """Executes a forward pass of the model."""
 
         # Conv pass 1
         x = self.conv1(x)
-        x = self.relu(x)
+        x = self.leaky_relu(x)
         x = self.max_pool(x)
 
         # Conv pass 2
         x = self.conv2(x)
-        x = self.relu(x)
+        x = self.leaky_relu(x)
         x = self.max_pool(x)
 
         # Conv pass 3
         x = self.conv3(x)
-        x = self.relu(x)
+        x = self.leaky_relu(x)
+        x = self.max_pool(x)
+
+        # Conv pass 4
+        x = self.conv4(x)
+        x = self.leaky_relu(x)
         x = self.max_pool(x)
 
         # Head

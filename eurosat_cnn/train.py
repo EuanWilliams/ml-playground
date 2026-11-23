@@ -9,10 +9,11 @@ import torch
 from torch import Tensor, nn, optim
 from torch.utils.data import DataLoader
 from torchinfo import summary
+from torchmetrics import Accuracy
 from tqdm import tqdm
 
 from common import DEVICE, prepare_dataset, TEST_SPLIT, TRAIN_SPLIT, RANDOM_SEED, BATCH_SIZE
-from eurosat_cnn import EuroSATCNN, IMAGE_SIZE, N_CHANNELS
+from eurosat_cnn import EuroSATCNN, IMAGE_SIZE, N_CHANNELS, NUM_CLASSES
 
 MODEL_OUTPUT_DIR = "eurosat_cnn/temp_models/"
 MODEL_SUMMARY_FILENAME = "model_summary.txt"
@@ -21,6 +22,26 @@ MODEL_VERSION_FILENAME = "model_version.json"
 LEARNING_RATE = 0.001
 
 EPOCHS = 32
+
+
+def training_eval_model(classifier: EuroSATCNN, val_dataloader: DataLoader[Tensor]) -> float:
+    """Evaluates the model against the validation set, separate to the function in test.py as this is used during training to quickly evaluate the model after
+    each epoch"""
+
+    print("Evaluating model against validation set...")
+    accuracy = Accuracy(task='multiclass', num_classes=NUM_CLASSES).to(DEVICE)
+
+    classifier.eval()
+    with torch.no_grad():
+        for data, targets in tqdm(val_dataloader):
+            data = data.to(DEVICE)
+            targets = targets.to(DEVICE)
+            scores = classifier(data)
+            _, predictions = scores.max(1)
+            accuracy.update(predictions, targets)
+
+    accuracy_result = accuracy.compute()
+    return accuracy_result
 
 
 def write_model_details(model: EuroSATCNN, model_output_dir: str, iteration: int) -> None:
@@ -48,13 +69,17 @@ def write_model_details(model: EuroSATCNN, model_output_dir: str, iteration: int
         f.write(json.dumps(model_version, indent=4))
 
 
-def train_model(train_dataloader: DataLoader[Tensor]) -> EuroSATCNN:
+def train_model(train_dataloader: DataLoader[Tensor], val_dataloader: DataLoader[Tensor]) -> EuroSATCNN:
     """Trains the model"""
 
     model = EuroSATCNN().to(DEVICE)
 
     loss_function = nn.CrossEntropyLoss()
     optimiser = optim.Adam(model.parameters(), lr=LEARNING_RATE)
+
+    best_model = None
+    best_model_accuracy = 0.0
+    best_model_epoch = 0
 
     for epoch in range(EPOCHS):
         print(f"Epoch {epoch + 1}/{EPOCHS}")
@@ -68,9 +93,18 @@ def train_model(train_dataloader: DataLoader[Tensor]) -> EuroSATCNN:
             loss.backward()
             optimiser.step()
 
-        print(f"Finished epoch {epoch}, loss={loss}")
+        accuracy = training_eval_model(model, val_dataloader=val_dataloader)
+        if best_model is None or accuracy > best_model_accuracy:
+            best_model = model
+            best_model_accuracy = accuracy
+            best_model_epoch = epoch
 
-    return model
+        print(f"Finished epoch {epoch}, loss={loss}, val accuracy={accuracy}%")
+
+    print("Finished training")
+    print(f"Best model was from epoch {best_model_epoch} with accuracy {best_model_accuracy:.2f}%")
+    assert best_model is not None
+    return best_model
 
 
 def save_model(model: EuroSATCNN, output_dir: str, iteration: int) -> None:
@@ -90,10 +124,10 @@ def main(opt: argparse.Namespace) -> None:
 
     os.makedirs(model_output_dir, exist_ok=True)
 
-    train, test = prepare_dataset()
+    train, val, test = prepare_dataset()
 
     # train model
-    trained_model = train_model(train)
+    trained_model = train_model(train, val)
     save_model(trained_model, model_output_dir, opt.iteration)
     write_model_details(trained_model, model_output_dir, opt.iteration)
 

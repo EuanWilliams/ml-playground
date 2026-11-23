@@ -196,7 +196,7 @@ def calculate_metrics(class_results: Dict[str, CounterT[str]]) -> Tuple[List[Cla
     return class_metrics, overall_metrics
 
 
-def eval_model(classifier: EurosatImageClassifier, test_dataloader: DataLoader[Tensor]) -> Tuple[Dict[str, CounterT[str]], List[OverlayData]]:
+def eval_model(classifier: EurosatImageClassifier, test_dataloader: DataLoader[Tensor]) -> Tuple[List[ClassMetrics], OverallMetrics, List[OverlayData]]:
     """Evaluates the model against the test set"""
 
     # Counter of class: {tp, fp, fn}
@@ -221,7 +221,9 @@ def eval_model(classifier: EurosatImageClassifier, test_dataloader: DataLoader[T
 
             overlays.append((data[labels_index].cpu().numpy(), ground_truth, predicted_class, predicted_score))
 
-    return class_results, overlays
+    class_metrics, overall_metrics = calculate_metrics(class_results)  # Calculate metrics to print them to the console
+    return class_metrics, overall_metrics, overlays
+
 
 def eval_speed(classifier: EurosatImageClassifier, test_dataloader: DataLoader[Tensor]) -> float:
     """Iterates through the test set and calculates the average time taken to classify an image. Repeats the dataset multiple times to get a more accurate
@@ -241,21 +243,20 @@ def eval_speed(classifier: EurosatImageClassifier, test_dataloader: DataLoader[T
 
     return time_per_image
 
+
 def main(opt: argparse.Namespace) -> None:
     """Main function"""
 
     evaluation_dir = os.path.join(opt.model_dir, EVALUATION_DIR)
     os.makedirs(evaluation_dir, exist_ok=True)
 
-    _, test = prepare_dataset()
+    _, _, test = prepare_dataset()
     model_path = find_model_file(opt.model_dir)
     image_classifier = EurosatImageClassifier(model_path)
 
-    class_results, overlays = eval_model(image_classifier, test)
-
     time_per_image = eval_speed(image_classifier, test)
 
-    class_metrics, overall_metrics = calculate_metrics(class_results)
+    class_metrics, overall_metrics, overlays = eval_model(image_classifier, test)
     write_class_metrics(class_metrics, overall_metrics, evaluation_dir, time_per_image)
     write_performance_graphs(class_metrics, evaluation_dir)
 

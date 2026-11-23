@@ -26,3 +26,25 @@
   - Accuracy: 85%
 
 ![f1_per_class.png](models/eurosat_cnn_it_1/evaluation/f1_per_class.png)
+
+
+### Iteration 4:
+- Update all ReLU activation functions to LeakyReLU.
+- Minor improvement.
+- Results:
+  - Precision: 92.62%
+  - Recall: 92.62%
+  - Accuracy: 86.25%
+
+![f1_per_class.png](models/eurosat_cnn_it_4/evaluation/f1_per_class.png)
+
+
+### Iteration 6:
+- Added a fourth convolutional layer.
+- Minor improvement.
+- Results:
+  - Precision: 93.04%
+  - Recall: 93.04%
+  - Accuracy: 86.98%
+
+![f1_per_class.png](models/eurosat_cnn_it_6/evaluation/f1_per_class.png)

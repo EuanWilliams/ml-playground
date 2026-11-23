@@ -1,0 +1,12 @@
+{
+    "iteration": 4,
+    "epochs": 32,
+    "learning_rate": 0.001,
+    "random_seed": 530,
+    "batch_size": 16,
+    "train_split": 0.85,
+    "test_split": 0.15,
+    "image_size": 64,
+    "n_channels": 3,
+    "date_time": "23-11-2026 19:56:19"
+}
