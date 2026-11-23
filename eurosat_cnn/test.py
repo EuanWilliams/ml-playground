@@ -3,6 +3,7 @@
 import argparse
 import json
 import os
+import time
 from collections import Counter
 from dataclasses import dataclass
 from typing import Tuple, List, Dict, Counter as CounterT
@@ -12,8 +13,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from torch import Tensor
 from torch.utils.data import DataLoader
+from tqdm import tqdm
 
-from common import DEVICE, prepare_dataset, MODEL_FILE_EXTENSION
+from common import DEVICE, prepare_dataset, MODEL_FILE_EXTENSION, BATCH_SIZE
 from eurosat_cnn import INDEX_TO_CLASS
 from image_classifier import EurosatImageClassifier
 
@@ -24,6 +26,9 @@ OVERLAY_SCALE = 5
 BAND_HEIGHT = 80
 
 EVALUATION_DIR = "evaluation/"
+
+# Number of times to iterate through the test set to get a more accurate average time per image
+SPEED_EVALUATION_ITERATIONS = 50
 
 OverlayData = Tuple[np.ndarray, str, str, float]  # Tuple of (image, ground_truth, predicted_class, score)
 
@@ -133,16 +138,22 @@ def write_performance_graphs(class_metrics: List[ClassMetrics], evaluation_dir: 
     print(f"Performance graphs saved to {evaluation_dir}")
 
 
-def write_class_metrics(class_metrics: List[ClassMetrics], overall_metrics: OverallMetrics, evaluation_dir: str) -> None:
+def write_class_metrics(class_metrics: List[ClassMetrics], overall_metrics: OverallMetrics, evaluation_dir: str, time_per_image: float) -> None:
     """Writes the class metrics to a file"""
 
-    metrics_output_path = os.path.join(evaluation_dir, "class_metrics.json")
+    metrics_output_path = os.path.join(evaluation_dir, "results.json")
     output_json = {
         "all_classes": {
             "precision": round(overall_metrics.precision, 4),
             "recall": round(overall_metrics.recall, 4),
             "accuracy": round(overall_metrics.accuracy, 4),
             "f1": round(overall_metrics.f1_score, 4),
+        },
+        "timing": {
+            "time_per_image": round(time_per_image, 8),
+            "batch_size": BATCH_SIZE,
+            "device": DEVICE,
+            "test_set_iterations": SPEED_EVALUATION_ITERATIONS,
         },
         "class_metrics": {
             class_metric.class_: {
@@ -212,6 +223,23 @@ def eval_model(classifier: EurosatImageClassifier, test_dataloader: DataLoader[T
 
     return class_results, overlays
 
+def eval_speed(classifier: EurosatImageClassifier, test_dataloader: DataLoader[Tensor]) -> float:
+    """Iterates through the test set and calculates the average time taken to classify an image. Repeats the dataset multiple times to get a more accurate
+    average time."""
+
+    print(f"Starting speed evaluation...running test dataset {SPEED_EVALUATION_ITERATIONS} times.")
+    timer = time.monotonic()
+    for _ in tqdm(range(SPEED_EVALUATION_ITERATIONS)):
+        for data, _ in test_dataloader:
+            data = data.to(DEVICE)
+            _ = classifier.predict(data)
+
+    time_taken = time.monotonic() - timer
+    time_per_image = time_taken / (len(test_dataloader.dataset) * SPEED_EVALUATION_ITERATIONS)
+    print(f"Speed evaluation completed in {time_taken:.2f} seconds.")
+    print(f"Average time per image: {time_per_image:.8f} seconds.")
+
+    return time_per_image
 
 def main(opt: argparse.Namespace) -> None:
     """Main function"""
@@ -225,8 +253,10 @@ def main(opt: argparse.Namespace) -> None:
 
     class_results, overlays = eval_model(image_classifier, test)
 
+    time_per_image = eval_speed(image_classifier, test)
+
     class_metrics, overall_metrics = calculate_metrics(class_results)
-    write_class_metrics(class_metrics, overall_metrics, evaluation_dir)
+    write_class_metrics(class_metrics, overall_metrics, evaluation_dir, time_per_image)
     write_performance_graphs(class_metrics, evaluation_dir)
 
     if opt.overlays is not None:

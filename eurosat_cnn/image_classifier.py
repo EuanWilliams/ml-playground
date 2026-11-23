@@ -1,11 +1,9 @@
 """Image classifier implementing EurosatCNN"""
 
-import argparse
 from dataclasses import dataclass
-from typing import Dict, List, Any
+from typing import Dict, List
 
 import numpy as np
-import torch
 from torch import Tensor
 from torchvision.io import decode_image, ImageReadMode
 

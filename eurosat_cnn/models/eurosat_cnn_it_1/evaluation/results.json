@@ -5,6 +5,12 @@
         "accuracy": 0.8552,
         "f1": 0.922
     },
+    "timing": {
+        "time_per_image": 0.00025643,
+        "batch_size": 16,
+        "device": "mps",
+        "test_set_iterations": 50
+    },
     "class_metrics": {
         "AnnualCrop": {
             "precision": 0.9623,

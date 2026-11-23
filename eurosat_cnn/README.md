@@ -8,7 +8,11 @@
 
 ### Iteration 0:
 - Initial implementation.
-- Total of 2 convolutional layers.g
+- Total of 2 convolutional layers.
+- Results:
+  - Precision: 78%
+  - Recall: 78%
+  - Accuracy: 65%
 
 
 ![f1_per_class.png](models/eurosat_cnn_it_0/evaluation/f1_per_class.png)
@@ -16,3 +20,9 @@
 ### Iteration 1:
 - Added a third convolutional layer.
 - Big improvement.
+- Results:
+  - Precision: 92%
+  - Recall: 92%
+  - Accuracy: 85%
+
+![f1_per_class.png](models/eurosat_cnn_it_1/evaluation/f1_per_class.png)
