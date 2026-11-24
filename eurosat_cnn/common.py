@@ -20,7 +20,7 @@ assert sum([TRAIN_SPLIT, VAL_SPLIT, TEST_SPLIT]) == 1.0
 RANDOM_SEED = 530
 RANDOM = Generator().manual_seed(RANDOM_SEED)
 
-BATCH_SIZE = 16
+BATCH_SIZE = 64
 
 DEVICE = "mps"
 

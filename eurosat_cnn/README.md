@@ -48,3 +48,15 @@
   - Accuracy: 86.98%
 
 ![f1_per_class.png](models/eurosat_cnn_it_6/evaluation/f1_per_class.png)
+
+### Iteration 7:
+- Added batch normalisation after each conv layer.
+- Bumped batch size from 16 to 64.
+- Added evaluation metrics to the training loop, and stored best model.
+- Minor improvement.
+- Results:
+  - Precision: 94.84%
+  - Recall: 94.84%
+  - Accuracy: 90.19%
+
+![f1_per_class.png](models/eurosat_cnn_it_7/evaluation/f1_per_class.png)

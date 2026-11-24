@@ -3,6 +3,8 @@
 import argparse
 import os
 import json
+import statistics
+from copy import deepcopy
 from datetime import datetime
 
 import torch
@@ -12,7 +14,7 @@ from torchinfo import summary
 from torchmetrics import Accuracy
 from tqdm import tqdm
 
-from common import DEVICE, prepare_dataset, TEST_SPLIT, TRAIN_SPLIT, RANDOM_SEED, BATCH_SIZE
+from common import DEVICE, prepare_dataset, TEST_SPLIT, TRAIN_SPLIT, RANDOM_SEED, BATCH_SIZE, VAL_SPLIT
 from eurosat_cnn import EuroSATCNN, IMAGE_SIZE, N_CHANNELS, NUM_CLASSES
 
 MODEL_OUTPUT_DIR = "eurosat_cnn/temp_models/"
@@ -41,7 +43,7 @@ def training_eval_model(classifier: EuroSATCNN, val_dataloader: DataLoader[Tenso
             accuracy.update(predictions, targets)
 
     accuracy_result = accuracy.compute()
-    return accuracy_result
+    return accuracy_result.item()
 
 
 def write_model_details(model: EuroSATCNN, model_output_dir: str, iteration: int) -> None:
@@ -60,6 +62,7 @@ def write_model_details(model: EuroSATCNN, model_output_dir: str, iteration: int
         "random_seed": RANDOM_SEED,
         "batch_size": BATCH_SIZE,
         "train_split": TRAIN_SPLIT,
+        "val_split": VAL_SPLIT,
         "test_split": TEST_SPLIT,
         "image_size": IMAGE_SIZE,
         "n_channels": N_CHANNELS,
@@ -77,33 +80,38 @@ def train_model(train_dataloader: DataLoader[Tensor], val_dataloader: DataLoader
     loss_function = nn.CrossEntropyLoss()
     optimiser = optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
-    best_model = None
+    best_model_state_dict = None
     best_model_accuracy = 0.0
     best_model_epoch = 0
 
     for epoch in range(EPOCHS):
         print(f"Epoch {epoch + 1}/{EPOCHS}")
+        model.train()  # important as in eval_model_train we set the model to eval mode.
 
-        for batch_index, (data, targets) in enumerate(tqdm(train_dataloader)):
+        batch_loss = []
+        for data, targets in tqdm(train_dataloader):
             data = data.to(device=DEVICE)
             targets = targets.to(device=DEVICE)
             scores = model(data)
             loss = loss_function(scores, targets)
+            batch_loss.append(loss.item())
             optimiser.zero_grad()
             loss.backward()
             optimiser.step()
 
         accuracy = training_eval_model(model, val_dataloader=val_dataloader)
-        if best_model is None or accuracy > best_model_accuracy:
-            best_model = model
+        if best_model_state_dict is None or accuracy > best_model_accuracy:
+            best_model_state_dict = deepcopy(model.state_dict())
             best_model_accuracy = accuracy
-            best_model_epoch = epoch
+            best_model_epoch = epoch + 1
 
-        print(f"Finished epoch {epoch}, loss={loss}, val accuracy={accuracy}%")
+        print(f"Finished epoch {epoch + 1}, loss={statistics.mean(batch_loss)}, val accuracy={accuracy}%")
 
+    assert best_model_state_dict is not None
+    best_model = EuroSATCNN()
+    best_model.load_state_dict(best_model_state_dict)
     print("Finished training")
-    print(f"Best model was from epoch {best_model_epoch} with accuracy {best_model_accuracy:.2f}%")
-    assert best_model is not None
+    print(f"Best model was from epoch {best_model_epoch} with accuracy {best_model_accuracy:.2f}")
     return best_model
 
 
